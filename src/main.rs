@@ -1,33 +1,19 @@
-use std::{process::exit};
+use std::process::exit;
+use passeri::net_thread::Messenger;
 
-use passeri::{midi_thread::{self, MidiPayload}, messenger::ip_messenger::IpMessenger};
+use passeri::{net_thread::{ip_messenger::IpMessenger, self}, builder};
 
-
-#[tokio::main]
-async fn main() {
-
-	let mut messenger = IpMessenger::new().await.unwrap_or_else(|err| {
-		println!("Error while initializing messenger: {}", err);
+fn main() {
+	let (_midi_instance, net_instance) = builder::new_sender::<IpMessenger>(0).unwrap_or_else(|err| {
+		println!("Error while trying to create binding: {}", err);
 		exit(1);
 	});
 
-	if let Some(addr) = messenger.get_addr() {
-		println!("listening on {}", addr);
+	println!("{}", net_instance.info());
+
+	match net_instance.req(net_thread::Request::WaitForInvitation) {
+		Ok(resp) => println!("{:?}", resp),
+		Err(err) => println!("{}", err)
 	}
-
-	let response = messenger.listen().await;
-	println!("frame: {:?}", response);
-
-	// // let _conn = midi_thread::setup_midi_receiver(0, tx).unwrap_or_else(|err| {
-	// // 	println!("Error while initializing listening midi port: {}", err);
-	// // 	exit(1);
-	// // });
-
-	// println!("passeri is listening on port {}", port_name);
-	// loop {
-	// 	if let Ok(msg) = rx.try_recv() {
-	// 			println!("msg: {:?}", msg);
-	// 	}
-	// }
 
 }

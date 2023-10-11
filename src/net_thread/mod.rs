@@ -1,24 +1,36 @@
-use std::sync::mpsc::Receiver;
-
-use midir::MidiOutputConnection;
+use std::{sync::mpsc::Receiver, error::Error};
 
 use crate::midi_thread::MidiPayload;
 
-
-pub trait RTPMessenger {
-	fn new_sender(rx: Receiver<MidiPayload>) -> Self;
-	fn new_receiver(midi_out: MidiOutputConnection) -> Self;
-	// fn sync();
-	// fn send();
-	// fn recv();
+pub enum Request {
+	// Receiver
+	WaitForInvitation, // block on listening for invitation
+	AcceptInvitation(u32), // initiator_token / accept invitation and forward all midi received
+	// Sender
+	InviteSomeone(String), // send invitation to specified address:port
 }
 
-// pub trait NetSender {
-// 	fn init_session();
-// }
+#[derive(Debug)]
+pub enum Response {
+	// Receiver
+	InvitationReceived{
+		initiator_token: u32,
+		ssrc: u32,
+		name: String,
+	},
+	StartReceiving,
 
-// pub trait NetReceiver {
-// 	fn accept_session();
-// }
+	// Sender
+	InvitationSended,
+	StartSending
+}
+
+type Responder = oneshot::Sender<Response>;
+
+pub trait Messenger {
+	fn new_sender(rx: Receiver<MidiPayload>) -> Self;
+	fn req(&self, req: Request) -> Result<Response, Box<dyn Error>>;
+	fn info(&self) -> String;
+}
 
 pub mod ip_messenger;

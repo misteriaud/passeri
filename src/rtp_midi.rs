@@ -54,17 +54,19 @@ impl Frame {
 }
 
 fn get_name(src: &[u8]) -> Result<String, Error> {
-	let mut len: usize = 0;
+	match get_eof(&src[16..]) {
+		None => Err(Error::Incomplete),
+		Some(len) => Ok(String::from_utf8_lossy(&src[16..len + 16]).into_owned())
+	}
+}
 
-	for (i, x) in src[16..].iter().enumerate() {
+fn get_eof(src: &[u8]) -> Option<usize>{
+	for (i, x) in src.iter().enumerate() {
 		if *x == 0 {
-			len = i;
+			return Some(i)
 		}
 	}
-	match len {
-		0 => Err(Error::Incomplete),
-		len => Ok(String::from_utf8_lossy(&src[16..len]).into_owned())
-	}
+	None
 }
 
 fn get_u32(src: &[u8]) -> u32 {
