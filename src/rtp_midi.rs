@@ -1,9 +1,3 @@
-use std::{io::Cursor, u8};
-use byteorder::{BigEndian, ReadBytesExt}; // 1.2.7
-
-
-use bytes::BytesMut;
-
 #[derive(Debug)]
 pub enum Frame{
 	IN {
@@ -17,6 +11,10 @@ pub enum Frame{
 		name: String
 	},
 	NO {
+		initiator_token: u32,
+		ssrc: u32,
+	},
+	BY {
 		initiator_token: u32,
 		ssrc: u32,
 	}
@@ -48,6 +46,7 @@ impl Frame {
 			[0x49, 0x4E] => Ok(Frame::IN { initiator_token: get_u32(&src[8..12]), ssrc: get_u32(&src[12..16]), name: get_name(src)? }),
 			[0x4F, 0x4B] => Ok(Frame::OK { initiator_token: get_u32(&src[8..12]), ssrc: get_u32(&src[12..16]), name: get_name(src)? }),
 			[0x4E, 0x4F] => Ok(Frame::NO { initiator_token: get_u32(&src[8..12]), ssrc: get_u32(&src[12..16]) }),
+			[0x42, 0x59] => Ok(Frame::BY { initiator_token: get_u32(&src[8..12]), ssrc: get_u32(&src[12..16]) }),
 			_ => Err(Error::Invalid)
 		}
     }

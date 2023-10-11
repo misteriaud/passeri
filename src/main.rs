@@ -1,4 +1,4 @@
-use std::{sync::mpsc::channel, process::exit};
+use std::{process::exit};
 
 use passeri::{midi_thread::{self, MidiPayload}, messenger::ip_messenger::IpMessenger};
 
@@ -10,6 +10,10 @@ async fn main() {
 		println!("Error while initializing messenger: {}", err);
 		exit(1);
 	});
+
+	if let Some(addr) = messenger.get_addr() {
+		println!("listening on {}", addr);
+	}
 
 	let response = messenger.listen().await;
 	println!("frame: {:?}", response);
