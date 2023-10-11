@@ -1,18 +1,17 @@
-// Following specs: https://developer.apple.com/library/archive/documentation/Audio/Conceptual/MIDINetworkDriverProtocol/MIDI/MIDI.html
-
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::error::Error;
 use std::net::{SocketAddr, UdpSocket};
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread::JoinHandle;
-use midir::MidiOutputConnection;
 use crate::midi_thread::{MidiPayload};
 use crate::{rtp_midi};
 
 use super::*;
 
-type RTPPayload = (Request, Responder);
+type RTPPayload = (Request<SocketAddr>, Responder);
+
+
 
 pub struct IpMessenger {
 	thread: JoinHandle<()>,
@@ -21,6 +20,8 @@ pub struct IpMessenger {
 }
 
 impl Messenger for IpMessenger {
+	type Addr  = SocketAddr;
+
 	fn new_sender(midi_rx: Receiver<MidiPayload>) -> Self {
 		let (tx, rx) = channel::<RTPPayload>();
 		let mut socket = IpMessengerSender::new(midi_rx, rx).unwrap();
@@ -35,7 +36,7 @@ impl Messenger for IpMessenger {
 		IpMessenger { thread, tx, socket_addr: (addr1, addr2) }
 	}
 
-	fn req(&self, req: Request) -> Result<Response, Box<dyn Error>> {
+	fn req(&self, req: Request<SocketAddr>) -> Result<Response, Box<dyn Error>> {
 		let (response_sender, response_receiver) = oneshot::channel() ;
 		self.tx.send((req, response_sender))?;
 
@@ -78,7 +79,8 @@ impl IpMessengerSender {
 	pub fn run(&mut self) {
 		for (req, responder) in self.messenger_rx.iter() {
 			match req {
-				Request::WaitForInvitation => responder.send(self.listen()).unwrap(),
+				Request::WaitForInvitation(addr) => responder.send(self.wait_for_invitation(addr)).unwrap(),
+				// Request::AcceptInvitation(packet) => responder.send(self.accept_invite(packet)).unwrap(),
 				_ => {}
 			}
 		}
@@ -90,22 +92,28 @@ impl IpMessengerSender {
 	}
 
 	/// Starting to listen over UDP socket for
-	pub fn listen(&self) -> Response {
+	fn wait_for_invitation(&self, addr: SocketAddr) -> Response {
+		// connect to the provided address
+		self.rtcp_sock.connect(addr).expect("error");
+		// if let Err(_err) = self.rtcp_sock.connect(addr) {
+		// 	return Response::Err;
+		// }
+
+		println!("Connected to {:?}", addr);
+
 		let mut buf: [u8; 1024] = [0; 1024];
+		let mut vec = vec![];
 
 		loop {
+			if let Ok(len) = self.rtcp_sock.recv(&mut buf) {
+				vec.append(&mut buf[..len].to_vec());
 
-			if let Ok((len, addr)) = self.rtcp_sock.recv_from(&mut buf) {
-				let mut entities = self.incommingConn.borrow_mut();
-				let conn =  entities.entry(addr).or_insert_with(|| Vec::new());
-				conn.append(&mut buf[..len].to_vec());
-
-				println!("receive {:?} of size {}", conn, len);
-				match rtp_midi::Frame::parse(&conn) {
-					Ok(rtp_midi::Frame::IN { initiator_token, ssrc, name }) => return Response::InvitationReceived { initiator_token, ssrc, name },
+				println!("receive {:?} of size {}", buf, len);
+				match rtp_midi::Frame::parse(&vec) {
+					Ok(rtp_midi::Frame::IN(packet)) => return Response::InvitationReceived(packet),
 					Err(rtp_midi::Error::Incomplete) => { println!("incomplete")},
 					Err(rtp_midi::Error::Invalid) => {
-						conn.clear();
+						vec.clear();
 						println!("invalid");
 					},
 					_ => { println!("incomplete")},
@@ -113,4 +121,9 @@ impl IpMessengerSender {
 			}
 		}
 	}
+
+	// fn accept_invite(&self, packet: rtp_midi::ControlPacket) -> Response {
+
+	// }
+
 }
