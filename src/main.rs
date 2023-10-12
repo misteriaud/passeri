@@ -1,24 +1,74 @@
-use std::net::{SocketAddr, Ipv4Addr};
-use std::process::exit;
-use std::time::Duration;
 use passeri::messenger_thread::Messenger;
+use passeri::rtp_midi::ControlPacket;
+use std::net::{Ipv4Addr, SocketAddr};
+use std::process::exit;
+use std::str::FromStr;
 
-use passeri::{messenger_thread::{ip_messenger::IpMessenger, self}, builder};
+use passeri::{
+    builder,
+    messenger_thread::{self, ip_messenger::IpMessenger},
+};
+
+use clap::{Parser, Subcommand};
+
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+struct Cli {
+    /// Name with which you will be define for the choosen command
+    name: String,
+    addr: Option<String>,
+
+    #[command(subcommand)]
+    command: Option<Commands>,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// Listen for the incomming session invitation, automatically accept and start to forward RTP to midi port
+    Listen,
+
+    /// send request to provided address, start to stream if accepted
+    Send {
+        /// lists test values
+        addr: String,
+    },
+}
 
 fn main() {
-	let (_midi_instance, net_instance) = builder::new_sender::<IpMessenger>(0).unwrap_or_else(|err| {
-		println!("Error while trying to create binding: {}", err);
-		exit(1);
-	});
+    let cli = Cli::parse();
 
-	println!("{}", net_instance.info());
+    let listening_addr = match cli.addr {
+        Some(addr) => SocketAddr::from_str(&addr).expect("error while parsing addr"),
+        None => SocketAddr::new(std::net::IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 4242),
+    };
 
-	// std::thread::sleep(Duration::from_secs(10));
-	let addr = SocketAddr::new(std::net::IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 4242);
+    let (_midi_instance, net_instance) = builder::new_sender::<IpMessenger>(0, listening_addr)
+        .unwrap_or_else(|err| {
+            println!("Error while trying to create binding: {}", err);
+            exit(1);
+        });
 
-	match net_instance.req(messenger_thread::Request::WaitForInvitation(addr)) {
-		Ok(resp) => println!("{:?}", resp),
-		Err(err) => println!("{}", err)
-	}
+    println!("{}", net_instance.info());
 
+    match &cli.command {
+        Some(Commands::Listen) => {
+            match net_instance.req(messenger_thread::Request::WaitForInvitation) {
+                Ok(resp) => println!("{:?}", resp),
+                Err(err) => println!("{}", err),
+            }
+        }
+
+        Some(Commands::Send { addr }) => {
+            let addr = SocketAddr::from_str(&addr).expect("error while parsing addr");
+
+            match net_instance.req(messenger_thread::Request::InviteSomeone((
+                addr,
+                ControlPacket::new(cli.name),
+            ))) {
+                Ok(resp) => println!("{:?}", resp),
+                Err(err) => println!("{}", err),
+            }
+        }
+        None => {}
+    }
 }
