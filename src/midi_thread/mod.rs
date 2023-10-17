@@ -7,7 +7,7 @@ use std::{
 use bytes::Bytes;
 use midir::{Ignore, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection};
 
-use crate::messenger_thread::midi_frame;
+use crate::messenger_thread::MidiFrame;
 
 const LOOKUP_PORT_NAME: &str = "passeri lookup";
 const LISTEN_PORT_NAME: &str = "PASSERI_LISTENER";
@@ -27,7 +27,7 @@ pub fn get_availables_midi_port() -> Result<Vec<(usize, String)>, String> {
     }
 }
 
-pub type MidiPayload = (u64, midi_frame);
+pub type MidiPayload = (u64, MidiFrame);
 
 pub fn new_sender(midi_port_index: usize) -> Result<MidiOutputConnection, String> {
     let midi_out = MidiOutput::new(EMITTER_PORT_NAME).expect("unable to create the lookup port");

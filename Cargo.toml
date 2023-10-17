@@ -11,3 +11,4 @@ clap = { version = "4.4.6", features = ["derive"] }
 midir = "0.9.1"
 oneshot = "0.1.6"
 rand = "0.8.5"
+thiserror = "1.0.49"

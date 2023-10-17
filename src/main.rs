@@ -1,12 +1,10 @@
-use passeri::messenger_thread::Messenger;
-use passeri::rtp_midi::ControlPacket;
 use std::net::{Ipv4Addr, SocketAddr};
 use std::process::exit;
 use std::str::FromStr;
 
 use passeri::{
     builder,
-    messenger_thread::{self, tcp_messenger::TcpMessenger},
+    messenger_thread::{tcp, Receiver, Sender},
 };
 
 use clap::{Parser, Subcommand};
@@ -14,22 +12,21 @@ use clap::{Parser, Subcommand};
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
-    /// Name with which you will be define for the choosen command
-    // name: String,
-    addr: Option<String>,
-
     #[command(subcommand)]
-    command: Option<Commands>,
+    command: Commands,
 }
 
 #[derive(Subcommand)]
 enum Commands {
     /// Listen for the incomming session invitation, automatically accept and start to forward RTP to midi port
-    Send,
+    Send {
+        /// address used to stream your midi, if undefined it will be choose by the operating system
+        addr: Option<String>,
+    },
 
     /// send request to provided address, start to stream if accepted
     Receive {
-        /// lists test values
+        /// address you want to listen
         addr: String,
     },
 }
@@ -38,57 +35,44 @@ fn main() {
     let cli = Cli::parse();
 
     match &cli.command {
-        Some(Commands::Send) => {
-            let listening_addr = match cli.addr {
+        Commands::Send { addr } => {
+            let listening_addr = match addr {
                 Some(addr) => SocketAddr::from_str(&addr).expect("error while parsing addr"),
                 None => SocketAddr::new(std::net::IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 0),
             };
 
             let (_midi_instance, net_instance) =
-                builder::new_sender::<TcpMessenger>(0, listening_addr).unwrap_or_else(|err| {
+                builder::new_sender::<tcp::Sender>(0, listening_addr).unwrap_or_else(|err| {
                     println!("Error while trying to create binding: {}", err);
                     exit(1);
                 });
 
             println!("{}", net_instance.info());
 
-            match net_instance.req(messenger_thread::Request::OpenRoom) {
-                Ok(resp) => match resp {
-                    messenger_thread::Response::NewClient(addr) => {
-                        println!("{} is now connected", addr);
-                        match net_instance
-                            .req(messenger_thread::Request::AcceptClient)
-                            .unwrap()
-                        {
-                            messenger_thread::Response::HasHangUp => {
-                                println!("finished: has hang up")
-                            }
-                            messenger_thread::Response::Err(err) => println!("err: {}", err),
-                            _ => {}
-                        }
+            match net_instance.wait_for_client() {
+                Ok(addr) => {
+                    println!("{} is now connected", addr);
+                    match net_instance.send(addr) {
+                        Ok(()) => println!("finished: has hang up"),
+                        Err(err) => println!("err: {}", err),
                     }
-                    _ => {}
-                },
+                }
                 Err(err) => println!("{}", err),
             }
         }
 
-        Some(Commands::Receive { addr }) => {
+        Commands::Receive { addr } => {
             let addr = SocketAddr::from_str(&addr).expect("error while parsing addr");
 
-            let net_instance = builder::new_receiver::<TcpMessenger>(0).unwrap_or_else(|err| {
-                println!("Error while trying to create binding: {}", err);
-                exit(1);
-            });
-
-            match net_instance.req(messenger_thread::Request::JoinRoom(addr)) {
-                Ok(resp) => match resp {
-                    messenger_thread::Response::Err(err) => println!("err: {}", err),
-                    _ => {}
-                },
+            let net_instance =
+                builder::new_receiver::<tcp::Receiver>(0, addr).unwrap_or_else(|err| {
+                    println!("Error while trying to create binding: {}", err);
+                    exit(1);
+                });
+            match net_instance.receive() {
+                Ok(()) => println!("finished: has hang up"),
                 Err(err) => println!("{}", err),
             }
         }
-        None => {}
     }
 }
