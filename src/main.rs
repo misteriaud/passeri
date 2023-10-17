@@ -53,7 +53,7 @@ fn main() {
                 Ok(addr) => {
                     println!("{} is now connected", addr);
                     match net_instance.send(addr) {
-                        Ok(()) => println!("finished: has hang up"),
+                        Ok(thread_resp) => println!("the net thread ended: {:?}", thread_resp),
                         Err(err) => println!("err: {}", err),
                     }
                 }
@@ -65,12 +65,12 @@ fn main() {
             let addr = SocketAddr::from_str(&addr).expect("error while parsing addr");
 
             let net_instance =
-                builder::new_receiver::<tcp::Receiver>(0, addr).unwrap_or_else(|err| {
+                builder::new_receiver::<tcp::Receiver>(1, addr).unwrap_or_else(|err| {
                     println!("Error while trying to create binding: {}", err);
                     exit(1);
                 });
             match net_instance.receive() {
-                Ok(()) => println!("finished: has hang up"),
+                Ok(thread_resp) => println!("the net thread ended: {:?}", thread_resp),
                 Err(err) => println!("{}", err),
             }
         }

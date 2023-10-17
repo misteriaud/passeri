@@ -3,7 +3,6 @@ use crate::messenger_thread::{
     MidiFrame,
 };
 use midir::MidiOutputConnection;
-use std::cell::RefCell;
 use std::net::{SocketAddr, TcpStream};
 use std::sync::mpsc;
 use std::thread::JoinHandle;
@@ -13,23 +12,24 @@ type RTPPayload = (Request, Responder);
 use crate::messenger_thread::Result;
 use std::io::Read;
 
+use super::ThreadReturn;
+
 pub struct Receiver {
-    thread: JoinHandle<()>,
+    thread: JoinHandle<ThreadReturn<Response>>,
     tx: mpsc::Sender<RTPPayload>,
     socket_addr: Option<SocketAddr>,
 }
 
 impl NetReceiver for Receiver {
     type Addr = SocketAddr;
+    type ThreadReturn = ThreadReturn<Response>;
 
     fn new(midi_out: MidiOutputConnection, addr: Self::Addr) -> Result<Self> {
         let (tx, rx) = mpsc::channel::<RTPPayload>();
 
         let mut socket = ReceiverThread::new(midi_out, rx, addr)?;
 
-        let thread = std::thread::spawn(move || {
-            socket.run();
-        });
+        let thread = std::thread::spawn(move || socket.run().unwrap_err());
 
         Ok(Receiver {
             thread,
@@ -38,12 +38,15 @@ impl NetReceiver for Receiver {
         })
     }
 
-    fn receive(&self) -> Result<()> {
+    fn receive(self) -> Result<Self::ThreadReturn> {
         let (response_sender, response_receiver) = oneshot::channel();
         self.tx.send((Request::Receive, response_sender))?;
 
         match response_receiver.recv()? {
-            receiver_trait::Response::StartReceiving => Ok(()),
+            receiver_trait::Response::StartReceiving => {
+                println!("received ListenStream");
+                Ok(self.thread.join().unwrap_or(ThreadReturn::JoinError))
+            }
             receiver_trait::Response::Err(err) => Err(err.into()),
         }
     }
@@ -75,31 +78,34 @@ impl ReceiverThread {
         })
     }
 
-    pub fn run(&mut self) {
+    pub fn run(&mut self) -> std::result::Result<(), ThreadReturn<Response>> {
         loop {
             let (req, responder) = self
                 .messenger_rx
                 .recv()
                 .expect("unable to read from the messenger tunnel");
             match req {
-                Request::Receive => responder.send(self.receive()).unwrap(),
+                Request::Receive => self.receive(responder)?,
             }
         }
     }
     /// Starting to listen over UDP socket for
-    fn receive(&mut self) -> Response {
+    fn receive(&mut self, responder: Responder) -> std::result::Result<(), ThreadReturn<Response>> {
         let mut buf: [u8; 33] = [0; 33];
+        responder.send(Response::StartReceiving)?;
         loop {
-            match self.distant.read(&mut buf) {
-                Ok(len) => {
-                    println!("receive {:?}", MidiFrame::get_payload(&buf));
-                    match self.midi_tx.send(MidiFrame::get_payload(&buf)) {
-                        Ok(()) => println!("send {} bytes", len),
-                        Err(err) => println!("err: {}", err),
-                    }
-                }
-                Err(err) => return Response::Err(err.to_string()),
+            let len = self
+                .distant
+                .read(&mut buf)
+                .map_err(|err| ThreadReturn::Read(err))?;
+
+            if len == 0 {
+                return Err(ThreadReturn::ReceiveEnd);
             }
+            self.midi_tx
+                .send(MidiFrame::get_payload(&buf))
+                .map_err(|err| ThreadReturn::MidiSendError(err))?;
+            println!("MIDI -> {} bytes", len);
         }
     }
 }
