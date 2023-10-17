@@ -42,7 +42,7 @@ fn main() {
             };
 
             let (_midi_instance, net_instance) =
-                builder::new_sender::<tcp::Sender>(0, listening_addr).unwrap_or_else(|err| {
+                builder::new_sender::<tcp::TcpSender>(0, listening_addr).unwrap_or_else(|err| {
                     println!("Error while trying to create binding: {}", err);
                     exit(1);
                 });
@@ -65,7 +65,7 @@ fn main() {
             let addr = SocketAddr::from_str(&addr).expect("error while parsing addr");
 
             let net_instance =
-                builder::new_receiver::<tcp::Receiver>(1, addr).unwrap_or_else(|err| {
+                builder::new_receiver::<tcp::TcpReceiver>(1, addr).unwrap_or_else(|err| {
                     println!("Error while trying to create binding: {}", err);
                     exit(1);
                 });

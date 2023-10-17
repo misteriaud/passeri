@@ -1,9 +1,9 @@
 use std::error::Error;
 pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
 pub mod receiver_trait;
-pub use receiver_trait::NetReceiver as Receiver;
+pub use receiver_trait::Receiver;
 pub mod sender_trait;
-pub use sender_trait::NetSender as Sender;
+pub use sender_trait::Sender;
 
 //
 //	MIDI FRAME OVER NETWORK

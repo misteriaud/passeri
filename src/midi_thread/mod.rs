@@ -1,10 +1,9 @@
 use std::{
-    array,
     process::exit,
-    sync::mpsc::{channel, Receiver, Sender},
+    sync::mpsc::{channel, Receiver},
 };
 
-use bytes::Bytes;
+
 use midir::{Ignore, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection};
 
 use crate::messenger_thread::MidiFrame;

@@ -2,9 +2,9 @@ pub mod receiver;
 use std::sync::mpsc::RecvError;
 
 use oneshot::SendError;
-pub use receiver::Receiver;
+pub use receiver::TcpReceiver;
 pub mod sender;
-pub use sender::Sender;
+pub use sender::TcpSender;
 
 use thiserror::Error;
 
@@ -26,4 +26,6 @@ pub enum ThreadReturn<Response> {
     JoinError,
     #[error("Receive End")]
     ReceiveEnd,
+    #[error("Send End")]
+    SendEnd,
 }

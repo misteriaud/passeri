@@ -1,5 +1,6 @@
-use crate::messenger_thread::sender_trait::{self, NetSender};
+use crate::messenger_thread::sender_trait::{self, Sender};
 use crate::messenger_thread::Result;
+use std::collections::HashMap;
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::mpsc::{self};
 use std::thread::JoinHandle;
@@ -9,18 +10,18 @@ use std::io::Write;
 
 use super::ThreadReturn;
 
-type Request = sender_trait::Request;
-type Response = sender_trait::Response<<Sender as NetSender>::Addr>;
-type Responder = sender_trait::Responder<<Sender as NetSender>::Addr>;
+type Request = sender_trait::Request<<TcpSender as Sender>::Addr>;
+type Response = sender_trait::Response<<TcpSender as Sender>::Addr>;
+type Responder = sender_trait::Responder<<TcpSender as Sender>::Addr>;
 type RTPPayload = (Request, Responder);
 
-pub struct Sender {
+pub struct TcpSender {
     thread: JoinHandle<ThreadReturn<Response>>,
     tx: mpsc::Sender<RTPPayload>,
     socket_addr: Option<SocketAddr>,
 }
 
-impl NetSender for Sender {
+impl Sender for TcpSender {
     type Addr = SocketAddr;
     type ThreadReturn = ThreadReturn<Response>;
 
@@ -32,7 +33,7 @@ impl NetSender for Sender {
 
         let thread = std::thread::spawn(move || socket.run().unwrap_err());
 
-        Ok(Sender {
+        Ok(TcpSender {
             thread,
             tx,
             socket_addr: Some(socket_addr),
@@ -50,7 +51,8 @@ impl NetSender for Sender {
     }
     fn send(self, client: Self::Addr) -> Result<Self::ThreadReturn> {
         let (response_sender, response_receiver) = oneshot::channel();
-        self.tx.send((Request::AcceptClient, response_sender))?;
+        self.tx
+            .send((Request::AcceptClient(client), response_sender))?;
 
         match response_receiver.recv()? {
             sender_trait::Response::StartStream => {
@@ -75,7 +77,7 @@ impl NetSender for Sender {
 
 struct SenderThread {
     local: TcpListener,
-    distant: Option<TcpStream>,
+    distant: HashMap<SocketAddr, TcpStream>,
     midi_rx: mpsc::Receiver<MidiPayload>,
     messenger_rx: mpsc::Receiver<RTPPayload>,
 }
@@ -88,7 +90,7 @@ impl SenderThread {
     ) -> Result<Self> {
         Ok(SenderThread {
             local: TcpListener::bind(addr)?,
-            distant: None,
+            distant: HashMap::new(),
             midi_rx,
             messenger_rx,
         })
@@ -103,7 +105,7 @@ impl SenderThread {
                 .into();
             match req {
                 Request::OpenRoom => self.open_room(responder)?,
-                Request::AcceptClient => self.send(responder)?,
+                Request::AcceptClient(addr) => self.send(addr, responder)?,
             }
         }
     }
@@ -117,31 +119,29 @@ impl SenderThread {
         &mut self,
         responder: Responder,
     ) -> std::result::Result<(), ThreadReturn<Response>> {
+        let (distant, addr) = self.local.accept()?;
+        self.distant.insert(addr, distant);
         responder
-            .send(match self.local.accept() {
-                Ok((distant, addr)) => {
-                    self.distant = Some(distant);
-                    Response::NewClient(addr)
-                }
-                Err(e) => Response::Err(e.to_string()),
-            })
+            .send(sender_trait::Response::NewClient(addr))
             .map_err(|err| ThreadReturn::Send(err))
     }
 
-    fn send(&mut self, responder: Responder) -> std::result::Result<(), ThreadReturn<Response>> {
-        Ok(match self.distant.as_mut() {
-            Some(client) => {
-                responder.send(Response::StartStream).unwrap();
-                while let Some(msg) = self.midi_rx.iter().next() {
-                    // println!("send {:?}", msg);
-                    client
-                        .write(&msg.1.serialize())
-                        .map_err(|err| ThreadReturn::Write(err))?;
-                }
+    fn send(
+        &mut self,
+        distant: SocketAddr,
+        responder: Responder,
+    ) -> std::result::Result<(), ThreadReturn<Response>> {
+        if let Some(mut stream) = self.distant.remove(&distant) {
+            responder.send(Response::StartStream).unwrap();
+            while let Some(msg) = self.midi_rx.iter().next() {
+                // println!("send {:?}", msg);
+                stream
+                    .write(&msg.1.serialize())
+                    .map_err(|err| ThreadReturn::Write(err))?;
             }
-            None => responder
-                .send(Response::Err("no client".into()))
-                .map_err(|err| ThreadReturn::Send(err))?,
-        })
+            Err(ThreadReturn::SendEnd)
+        } else {
+            Ok(responder.send(sender_trait::Response::ClientNotFound)?)
+        }
     }
 }

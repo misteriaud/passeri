@@ -1,5 +1,5 @@
 use crate::messenger_thread::{
-    receiver_trait::{self, NetReceiver, Request, Responder, Response},
+    receiver_trait::{self, Receiver, Request, Responder, Response},
     MidiFrame,
 };
 use midir::MidiOutputConnection;
@@ -14,13 +14,13 @@ use std::io::Read;
 
 use super::ThreadReturn;
 
-pub struct Receiver {
+pub struct TcpReceiver {
     thread: JoinHandle<ThreadReturn<Response>>,
     tx: mpsc::Sender<RTPPayload>,
     socket_addr: Option<SocketAddr>,
 }
 
-impl NetReceiver for Receiver {
+impl Receiver for TcpReceiver {
     type Addr = SocketAddr;
     type ThreadReturn = ThreadReturn<Response>;
 
@@ -31,7 +31,7 @@ impl NetReceiver for Receiver {
 
         let thread = std::thread::spawn(move || socket.run().unwrap_err());
 
-        Ok(Receiver {
+        Ok(TcpReceiver {
             thread,
             tx,
             socket_addr: None,

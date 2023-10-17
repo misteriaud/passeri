@@ -4,7 +4,7 @@ use crate::{
 };
 use midir::MidiInputConnection;
 
-pub fn new_sender<T: messenger_thread::sender_trait::NetSender>(
+pub fn new_sender<T: messenger_thread::sender_trait::Sender>(
     midi_port_index: usize,
     messenger_addr: T::Addr,
 ) -> Result<(MidiInputConnection<()>, T)> {
@@ -14,7 +14,7 @@ pub fn new_sender<T: messenger_thread::sender_trait::NetSender>(
     Ok((conn, net))
 }
 
-pub fn new_receiver<T: messenger_thread::receiver_trait::NetReceiver>(
+pub fn new_receiver<T: messenger_thread::receiver_trait::Receiver>(
     midi_port_index: usize,
     messenger_addr: T::Addr,
 ) -> Result<T> {

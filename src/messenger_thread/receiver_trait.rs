@@ -11,7 +11,7 @@ pub enum Response {
 }
 pub type Responder = oneshot::Sender<Response>;
 
-pub trait NetReceiver {
+pub trait Receiver {
     type Addr;
     type ThreadReturn;
 
