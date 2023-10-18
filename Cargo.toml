@@ -3,5 +3,6 @@ resolver = "2"
 
 members = [
     "passeri-core",
-	"passeri-tcp"
+	"passeri-tcp",
+	"passeri-bluetooth"
 ]
