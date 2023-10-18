@@ -1,10 +1,3 @@
-use std::error::Error;
-pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
-pub mod receiver_trait;
-pub use receiver_trait::Receiver;
-pub mod sender_trait;
-pub use sender_trait::Sender;
-
 //
 //	MIDI FRAME OVER NETWORK
 //
@@ -29,10 +22,10 @@ impl From<&[u8]> for MidiFrame {
 }
 
 impl MidiFrame {
-    fn get_payload(src: &[u8; 33]) -> &[u8] {
+    pub fn get_payload(src: &[u8; 33]) -> &[u8] {
         &src[1..(src[0] as usize + 1)]
     }
-    fn serialize(&self) -> [u8; 33] {
+    pub fn serialize(&self) -> [u8; 33] {
         let mut whole: [u8; 33] = [0; 33];
         let (one, two) = whole.split_at_mut(1);
         one.copy_from_slice(&[self.len as u8]);
@@ -40,6 +33,3 @@ impl MidiFrame {
         whole
     }
 }
-
-pub mod tcp;
-// pub mod bluetooth_messenger;

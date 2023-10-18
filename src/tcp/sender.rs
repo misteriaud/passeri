@@ -1,18 +1,17 @@
-use crate::messenger_thread::sender_trait::{self, Sender};
-use crate::messenger_thread::Result;
+use crate::net::{sender, Result, Sender};
 use std::collections::HashMap;
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::mpsc::{self};
 use std::thread::JoinHandle;
 
-use crate::midi_thread::MidiPayload;
+use crate::midi::MidiPayload;
 use std::io::Write;
 
 use super::ThreadReturn;
 
-type Request = sender_trait::Request<<TcpSender as Sender>::Addr>;
-type Response = sender_trait::Response<<TcpSender as Sender>::Addr>;
-type Responder = sender_trait::Responder<<TcpSender as Sender>::Addr>;
+type Request = sender::Request<<TcpSender as Sender>::Addr>;
+type Response = sender::Response<<TcpSender as Sender>::Addr>;
+type Responder = sender::Responder<<TcpSender as Sender>::Addr>;
 type RTPPayload = (Request, Responder);
 
 pub struct TcpSender {
@@ -45,7 +44,7 @@ impl Sender for TcpSender {
         self.tx.send((Request::OpenRoom, response_sender))?;
 
         match response_receiver.recv()? {
-            sender_trait::Response::NewClient(addr) => Ok(addr),
+            sender::Response::NewClient(addr) => Ok(addr),
             _ => Err("invalid response from tcp_thread".into()),
         }
     }
@@ -55,7 +54,7 @@ impl Sender for TcpSender {
             .send((Request::AcceptClient(client), response_sender))?;
 
         match response_receiver.recv()? {
-            sender_trait::Response::StartStream => {
+            sender::Response::StartStream => {
                 println!("received StartStream");
                 Ok(self.thread.join().unwrap_or(ThreadReturn::JoinError))
             }
@@ -122,7 +121,7 @@ impl SenderThread {
         let (distant, addr) = self.local.accept()?;
         self.distant.insert(addr, distant);
         responder
-            .send(sender_trait::Response::NewClient(addr))
+            .send(sender::Response::NewClient(addr))
             .map_err(|err| ThreadReturn::Send(err))
     }
 
@@ -141,7 +140,7 @@ impl SenderThread {
             }
             Err(ThreadReturn::SendEnd)
         } else {
-            Ok(responder.send(sender_trait::Response::ClientNotFound)?)
+            Ok(responder.send(sender::Response::ClientNotFound)?)
         }
     }
 }

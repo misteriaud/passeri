@@ -1,9 +1,9 @@
-pub mod receiver;
 use std::sync::mpsc::RecvError;
 
 use oneshot::SendError;
+mod receiver;
 pub use receiver::TcpReceiver;
-pub mod sender;
+mod sender;
 pub use sender::TcpSender;
 
 use thiserror::Error;

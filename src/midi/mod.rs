@@ -3,15 +3,16 @@ use std::{
     sync::mpsc::{channel, Receiver},
 };
 
-
 use midir::{Ignore, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection};
 
-use crate::messenger_thread::MidiFrame;
+mod midi_frame;
+pub use midi_frame::MidiFrame;
 
 const LOOKUP_PORT_NAME: &str = "passeri lookup";
 const LISTEN_PORT_NAME: &str = "PASSERI_LISTENER";
 const EMITTER_PORT_NAME: &str = "PASSERI_EMITTER";
 
+/// Returns a vector of all MIDI input ports that `midir` can connect to
 pub fn get_availables_midi_port() -> Result<Vec<(usize, String)>, String> {
     match MidiInput::new(LOOKUP_PORT_NAME) {
         Ok(lookup_port) => {
@@ -28,6 +29,12 @@ pub fn get_availables_midi_port() -> Result<Vec<(usize, String)>, String> {
 
 pub type MidiPayload = (u64, MidiFrame);
 
+/// Create a new `MidiOutputConnection` instance, which can be called to send MIDI message to the provided MIDI port
+///
+/// Under the hood, `midir` spawn a background listening thread which is waiting for any incomming call to the returned instance.
+///
+/// # Arguments
+/// * `midi_port_index` - Index of a MIDI output port (you can get it from a `get_availables_midi_port()` function call)
 pub fn new_sender(midi_port_index: usize) -> Result<MidiOutputConnection, String> {
     let midi_out = MidiOutput::new(EMITTER_PORT_NAME).expect("unable to create the lookup port");
     println!("midi out is set up to: {}", EMITTER_PORT_NAME);
@@ -42,6 +49,10 @@ pub fn new_sender(midi_port_index: usize) -> Result<MidiOutputConnection, String
     Err("couldnt find the port".into())
 }
 
+/// Create a new `MidiInputConnection` instance, which will forward any received MIDI message to the returned `mpsc::Receiver` end tunnel
+///
+/// # Arguments
+/// * `midi_port_index` - Index of a MIDI output port (you can get it from a `get_availables_midi_port()` function call)
 pub fn new_receiver(
     midi_port_index: usize,
 ) -> Result<(MidiInputConnection<()>, Receiver<MidiPayload>), String> {

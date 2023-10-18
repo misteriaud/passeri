@@ -1,7 +1,5 @@
-use crate::messenger_thread::{
-    receiver_trait::{self, Receiver, Request, Responder, Response},
-    MidiFrame,
-};
+use crate::midi::MidiFrame;
+use crate::net::receiver::{self, Receiver, Request, Responder, Response};
 use midir::MidiOutputConnection;
 use std::net::{SocketAddr, TcpStream};
 use std::sync::mpsc;
@@ -9,7 +7,7 @@ use std::thread::JoinHandle;
 
 type RTPPayload = (Request, Responder);
 
-use crate::messenger_thread::Result;
+use crate::net::Result;
 use std::io::Read;
 
 use super::ThreadReturn;
@@ -43,11 +41,11 @@ impl Receiver for TcpReceiver {
         self.tx.send((Request::Receive, response_sender))?;
 
         match response_receiver.recv()? {
-            receiver_trait::Response::StartReceiving => {
+            receiver::Response::StartReceiving => {
                 println!("received ListenStream");
                 Ok(self.thread.join().unwrap_or(ThreadReturn::JoinError))
             }
-            receiver_trait::Response::Err(err) => Err(err.into()),
+            receiver::Response::Err(err) => Err(err.into()),
         }
     }
 

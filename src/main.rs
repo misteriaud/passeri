@@ -2,10 +2,8 @@ use std::net::{Ipv4Addr, SocketAddr};
 use std::process::exit;
 use std::str::FromStr;
 
-use passeri::{
-    builder,
-    messenger_thread::{tcp, Receiver, Sender},
-};
+use passeri::net::{Receiver, Sender};
+use passeri::tcp;
 
 use clap::{Parser, Subcommand};
 
@@ -42,7 +40,7 @@ fn main() {
             };
 
             let (_midi_instance, net_instance) =
-                builder::new_sender::<tcp::TcpSender>(0, listening_addr).unwrap_or_else(|err| {
+                passeri::new_sender::<tcp::TcpSender>(0, listening_addr).unwrap_or_else(|err| {
                     println!("Error while trying to create binding: {}", err);
                     exit(1);
                 });
@@ -65,7 +63,7 @@ fn main() {
             let addr = SocketAddr::from_str(&addr).expect("error while parsing addr");
 
             let net_instance =
-                builder::new_receiver::<tcp::TcpReceiver>(1, addr).unwrap_or_else(|err| {
+                passeri::new_receiver::<tcp::TcpReceiver>(1, addr).unwrap_or_else(|err| {
                     println!("Error while trying to create binding: {}", err);
                     exit(1);
                 });
