@@ -5,6 +5,7 @@ use std::sync::mpsc::{self};
 use std::thread::JoinHandle;
 
 use crate::midi::MidiPayload;
+use log::trace;
 use std::io::Write;
 
 use super::ThreadReturn;
@@ -55,7 +56,7 @@ impl Sender for TcpSender {
 
         match response_receiver.recv()? {
             sender::Response::StartStream => {
-                println!("received StartStream");
+                trace!("received StartStream");
                 Ok(self.thread.join().unwrap_or(ThreadReturn::JoinError))
             }
             _ => Err("invalid response from tcp_thread".into()),
@@ -133,7 +134,7 @@ impl SenderThread {
         if let Some(mut stream) = self.distant.remove(&distant) {
             responder.send(Response::StartStream).unwrap();
             while let Some(msg) = self.midi_rx.iter().next() {
-                // println!("send {:?}", msg);
+                trace!("send {:?}", msg);
                 stream
                     .write(&msg.1.serialize())
                     .map_err(|err| ThreadReturn::Write(err))?;

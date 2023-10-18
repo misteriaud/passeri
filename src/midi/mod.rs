@@ -3,6 +3,7 @@ use std::{
     sync::mpsc::{channel, Receiver},
 };
 
+use log::{info, trace};
 use midir::{Ignore, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection};
 
 mod midi_frame;
@@ -37,10 +38,10 @@ pub type MidiPayload = (u64, MidiFrame);
 /// * `midi_port_index` - Index of a MIDI output port (you can get it from a `get_availables_midi_port()` function call)
 pub fn new_sender(midi_port_index: usize) -> Result<MidiOutputConnection, String> {
     let midi_out = MidiOutput::new(EMITTER_PORT_NAME).expect("unable to create the lookup port");
-    println!("midi out is set up to: {}", EMITTER_PORT_NAME);
+    info!("midi out is set up to: {}", EMITTER_PORT_NAME);
 
     if let Some(port) = midi_out.ports().get(midi_port_index) {
-        println!("routine is setup for {}", EMITTER_PORT_NAME);
+        info!("routine is setup for {}", EMITTER_PORT_NAME);
         if let Ok(conn) = midi_out.connect(port, "midir-read-input") {
             return Ok(conn);
         }
@@ -58,18 +59,18 @@ pub fn new_receiver(
 ) -> Result<(MidiInputConnection<()>, Receiver<MidiPayload>), String> {
     let mut midi_in = MidiInput::new(LISTEN_PORT_NAME).expect("unable to create the lookup port");
     midi_in.ignore(Ignore::None);
-    println!("midi in port is set up to: {}", LISTEN_PORT_NAME);
+    info!("midi in port is set up to: {}", LISTEN_PORT_NAME);
 
     match midi_in.ports().get(midi_port_index) {
         Some(port) => {
-            println!("routine is setup for {}", LISTEN_PORT_NAME);
+            info!("routine is setup for {}", LISTEN_PORT_NAME);
             let (tx, rx) = channel::<MidiPayload>();
 
             match midi_in.connect(
                 port,
                 "midir-read-input",
                 move |stamp: u64, msg: &[u8], _| {
-                    // println!("msg: {}", stamp);
+                    trace!("msg: {}", stamp);
                     if let Err(_) = tx.send((stamp, msg.into())) {
                         exit(1);
                     }

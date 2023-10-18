@@ -1,5 +1,6 @@
 use crate::midi::MidiFrame;
 use crate::net::receiver::{self, Receiver, Request, Responder, Response};
+use log::{info, trace};
 use midir::MidiOutputConnection;
 use std::net::{SocketAddr, TcpStream};
 use std::sync::mpsc;
@@ -42,7 +43,7 @@ impl Receiver for TcpReceiver {
 
         match response_receiver.recv()? {
             receiver::Response::StartReceiving => {
-                println!("received ListenStream");
+                info!("received ListenStream");
                 Ok(self.thread.join().unwrap_or(ThreadReturn::JoinError))
             }
             receiver::Response::Err(err) => Err(err.into()),
@@ -103,7 +104,7 @@ impl ReceiverThread {
             self.midi_tx
                 .send(MidiFrame::get_payload(&buf))
                 .map_err(|err| ThreadReturn::MidiSendError(err))?;
-            println!("MIDI -> {} bytes", len);
+            trace!("MIDI -> {} bytes", len);
         }
     }
 }

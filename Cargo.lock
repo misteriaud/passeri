@@ -346,6 +346,7 @@ version = "0.1.0"
 dependencies = [
  "bytes",
  "clap",
+ "log",
  "midir",
  "oneshot",
  "rand",
