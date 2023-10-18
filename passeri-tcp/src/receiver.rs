@@ -1,25 +1,26 @@
-use crate::midi::MidiFrame;
-use crate::net::receiver::{self, Receiver, Request, Responder, Response};
 use log::{info, trace};
 use midir::MidiOutputConnection;
+use passeri_core::midi::MidiFrame;
+use passeri_core::net::receiver::{self, Request, Responder, Response};
 use std::net::{SocketAddr, TcpStream};
 use std::sync::mpsc;
 use std::thread::JoinHandle;
 
 type RTPPayload = (Request, Responder);
 
-use crate::net::Result;
+use passeri_core::net::Result;
 use std::io::Read;
 
 use super::ThreadReturn;
 
-pub struct TcpReceiver {
+/// `passeri_core::net::Receiver` trait implementation over TCP
+pub struct Receiver {
     thread: JoinHandle<ThreadReturn<Response>>,
     tx: mpsc::Sender<RTPPayload>,
     socket_addr: Option<SocketAddr>,
 }
 
-impl Receiver for TcpReceiver {
+impl passeri_core::net::Receiver for Receiver {
     type Addr = SocketAddr;
     type ThreadReturn = ThreadReturn<Response>;
 
@@ -30,7 +31,7 @@ impl Receiver for TcpReceiver {
 
         let thread = std::thread::spawn(move || socket.run().unwrap_err());
 
-        Ok(TcpReceiver {
+        Ok(Receiver {
             thread,
             tx,
             socket_addr: None,

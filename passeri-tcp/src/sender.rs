@@ -1,27 +1,28 @@
-use crate::net::{sender, Result, Sender};
+use passeri_core::net::{sender, Result};
 use std::collections::HashMap;
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::mpsc::{self};
 use std::thread::JoinHandle;
 
-use crate::midi::MidiPayload;
 use log::trace;
+use passeri_core::midi::MidiPayload;
 use std::io::Write;
 
 use super::ThreadReturn;
 
-type Request = sender::Request<<TcpSender as Sender>::Addr>;
-type Response = sender::Response<<TcpSender as Sender>::Addr>;
-type Responder = sender::Responder<<TcpSender as Sender>::Addr>;
+type Request = sender::Request<<Sender as passeri_core::net::Sender>::Addr>;
+type Response = sender::Response<<Sender as passeri_core::net::Sender>::Addr>;
+type Responder = sender::Responder<<Sender as passeri_core::net::Sender>::Addr>;
 type RTPPayload = (Request, Responder);
 
-pub struct TcpSender {
+/// `passeri_core::net::Sender` trait implementation over TCP
+pub struct Sender {
     thread: JoinHandle<ThreadReturn<Response>>,
     tx: mpsc::Sender<RTPPayload>,
     socket_addr: Option<SocketAddr>,
 }
 
-impl Sender for TcpSender {
+impl passeri_core::net::Sender for Sender {
     type Addr = SocketAddr;
     type ThreadReturn = ThreadReturn<Response>;
 
@@ -33,7 +34,7 @@ impl Sender for TcpSender {
 
         let thread = std::thread::spawn(move || socket.run().unwrap_err());
 
-        Ok(TcpSender {
+        Ok(Sender {
             thread,
             tx,
             socket_addr: Some(socket_addr),
