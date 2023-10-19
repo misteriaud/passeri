@@ -6,7 +6,7 @@ use std::{
 fn main() {
     env_logger::init();
 
-    let listening_addr = SocketAddr::new(std::net::IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 4242);
+    let listening_addr = SocketAddr::new(std::net::IpAddr::V4(Ipv4Addr::new(10, 34, 9, 1)), 8080);
 
     let sender =
         passeri_api::new_sender::<passeri_tcp::Sender>(0, listening_addr).unwrap_or_else(|err| {

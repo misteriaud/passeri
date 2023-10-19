@@ -1,4 +1,4 @@
-use log::{error, trace};
+use log::{debug, error, info, trace};
 use midir::MidiOutputConnection;
 use passeri_api::midi::MidiFrame;
 use passeri_api::net::receiver::{self, Request, Responder, Response};
@@ -25,6 +25,7 @@ impl ReceiverThread for Receiver {
         messenger_rx: mpsc::Receiver<PasseriReq>,
         addr: SocketAddr,
     ) -> Result<Self> {
+        debug!("try to connect to {}", addr);
         let distant = match TcpStream::connect(addr) {
             Ok(result) => result,
             Err(err) => {
