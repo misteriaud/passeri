@@ -7,5 +7,17 @@ use thiserror::Error;
 
 mod receiver;
 pub use receiver::Receiver;
+
+mod connection;
+// pub use connection::
 // mod sender;
 // pub use sender::Sender;
+
+#[derive(Error, Debug)]
+pub enum ThreadReturn<Response> {
+    #[error("Bluetooth Error")]
+    BleErr(btleplug::Error),
+
+    #[error("No available matching Bluetooth pair")]
+    NoMatchingClient,
+}

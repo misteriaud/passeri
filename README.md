@@ -10,14 +10,19 @@ This architecture have been chosen over concurrent one for its efficiency.
 **Passeri** is shipped with a couple of helper functions to make it easier to use.
 
 # Roadmap
-- MIDI thread implementation
+- [X] MIDI thread implementation
 	- [x] MIDI sender
 	- [x] MIDI receiver
-- Network thread implementation
-	- [x] modular binding using trait
-	- [x] support of TCP
-	- [ ] support of Bluetooth
-- [ ] Perform benchmarks
+- [X] Network api development ([passeri-api])
+	- [ ] trait description
+- [ ] TCP implementation ([passeri-tcp])
+	- [X] PoC
+	- [ ] Testing
+	- [ ] Benchmark
+- [ ] Bluetooth implementation ([passeri-bluetooth]) following [BLE MIDI](https://hangar42.nl/wp-content/uploads/2017/10/BLE-MIDI-spec.pdf)
+	- [ ] PoC
+	- [ ] Testing
+	- [ ] Benchmark
 - [ ] GUI using Tauri
 
 # Examples

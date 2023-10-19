@@ -1,191 +1,136 @@
-use std::{error::Error, time::Duration};
+use std::collections::HashMap;
+use std::sync::mpsc;
+use std::thread::JoinHandle;
 
-use btleplug::api::CharPropFlags;
-use btleplug::api::{
-    bleuuid::uuid_from_u16, Central, Manager as _, Peripheral as _, ScanFilter, WriteType,
-};
-use btleplug::platform::{Adapter, Manager, Peripheral};
+// use btleplug::api::CharPropFlags;
+// use btleplug::api::{
+//     bleuuid::uuid_from_u16, Central, Manager as _, Peripheral as _, ScanFilter, WriteType,
+// };
+// use btleplug::platform::{Adapter, Manager, Peripheral};
 
-struct Ret {}
+use log::{info, trace};
+use midir::MidiOutputConnection;
+use passeri_core::midi::MidiFrame;
+use passeri_core::net::receiver::{self, Request, Responder, Response};
+use passeri_core::net::Result;
 
-pub struct Receiver {}
+use crate::connection::BLEAddr;
+use crate::ThreadReturn;
+type PasseriReq = (Request, Responder);
+
+pub struct Receiver {
+    thread: JoinHandle<ThreadReturn<()>>,
+    tx: mpsc::Sender<PasseriReq>,
+}
 
 impl passeri_core::net::Receiver for Receiver {
-    type Addr = Peripheral;
-    type ThreadReturn = Ret;
+    type Addr = BLEAddr;
+    type ThreadReturn = ThreadReturn<()>;
 
-    fn new(midi_out: midir::MidiOutputConnection, sender: Peripheral) -> Result<Self, ()> {
-        Err(())
-        // let thread
-        // let manager = btleplug::platform::Manager::new().unwrap();
-        // let central = manager
-        //     .adapters()
-        //     .unwrap()
-        //     .into_iter()
-        //     .next()
-        //     .expect("No Bluetooth adapter available.");
+    fn new(midi_out: MidiOutputConnection, addr: Self::Addr) -> Result<Self> {
+        let (tx, rx) = mpsc::channel::<PasseriReq>();
 
-        // central.connect().unwrap();
-        // central.start_scan().unwrap();
+        let mut socket = ReceiverThread::new(midi_out, rx, addr)?;
+
+        let thread = std::thread::spawn(move || socket.run().unwrap_err());
+
+        Ok(Receiver { thread, tx })
     }
 
-    fn receive(self) -> Result<Self::ThreadReturn, ()> {
-        Err(())
+    fn receive(self) -> Result<Self::ThreadReturn> {
+        let (response_sender, response_receiver) = oneshot::channel();
+        self.tx.send((Request::Receive, response_sender))?;
+
+        match response_receiver.recv()? {
+            receiver::Response::StartReceiving => {
+                info!("received ListenStream");
+                Ok(self.thread.join().unwrap_or(ThreadReturn::JoinError))
+            }
+            receiver::Response::Err(err) => Err(err.into()),
+        }
     }
 
-    fn info(&self) -> String {}
+    fn info(&self) -> String {
+        match self.socket_addr {
+            Some(addr) => format!("addr1: {}", addr),
+            None => String::new(),
+        }
+    }
 }
 
 struct ReceiverThread {
-    manager: Manager,
-    peripheral: Peripheral,
+    midi_tx: MidiOutputConnection,
+    pub distant: BLEAddr,
+    messenger_rx: mpsc::Receiver<PasseriReq>,
 }
-
-use futures_util::StreamExt;
-use tokio::time;
-use uuid::Uuid;
-
-// https://www.bluetooth.com/specifications/assigned-numbers/
 
 impl ReceiverThread {
-    pub async fn new(filter_name: String) -> Result<ReceiverThread, Box<dyn Error>> {
-        let manager = Manager::new().await?;
-
-        // get the first bluetooth adapter
-        let adapters = manager.adapters().await?;
-        let central = adapters.into_iter().nth(0).unwrap();
-
-        // start scanning for devices
-        central.start_scan(ScanFilter::default()).await?;
-
-        // instead of waiting, you can use central.events() to get a stream which will
-        // notify you of new devices, for an example of that see examples/event_driven_discovery.rs
-        time::sleep(Duration::from_secs(2)).await;
-
-        let peripherals = central.peripherals().await?;
-
-        if peripherals.is_empty() {
-            eprintln!("->>> BLE peripheral devices were not found, sorry. Exiting...");
-            todo!();
-            return Ok(());
-        }
-
-        // let peripheral = peripherals.into_iter().find_map(async |p| Self::find_peripheral(p, &filter_name, CharPropFlags::NOTIFY).await)
-        for peripheral in peripherals.into_iter() {
-            let properties = peripheral.properties().await?;
-            let is_connected = peripheral.is_connected().await?;
-            let local_name = properties
-                .unwrap()
-                .local_name
-                .unwrap_or(String::from("(peripheral name unknown)"));
-            // println!(
-            //     "Peripheral {:?} is connected: {:?}",
-            //     &local_name, is_connected
-            // );
-            // Check if it's the peripheral we want.
-            if !local_name.contains(&filter_name) {
-                continue;
-            }
-            println!("Found matching peripheral {:?}...", &local_name);
-            // if !is_connected {
-            //     // Connect if we aren't already connected.
-            //     if let Err(err) = peripheral.connect().await {
-            //         eprintln!("Error connecting to peripheral, skipping: {}", err);
-            //         continue;
-            //     }
-            // }
-            let is_connected = peripheral.is_connected().await?;
-            println!(
-                "Now connected ({:?}) to peripheral {:?}.",
-                is_connected, &local_name
-            );
-            if !is_connected {
-                continue;
-            }
-            println!("Discover peripheral {:?} services...", local_name);
-            peripheral.discover_services().await?;
-
-            if peripheral
-                .characteristics()
-                .into_iter()
-                .find(|char| char.properties.contains(CharPropFlags::NOTIFY))
-                .is_none()
-            {
-                continue;
-            }
-
-            return Ok(ReceiverThread {
-                manager,
-                peripheral,
-            });
-            // for characteristic in peripheral.characteristics() {
-            //     println!("Checking characteristic {:?}", characteristic);
-            //     // Subscribe to notifications from the characteristic with the selected
-            //     // UUID.
-            //     // if characteristic.properties.contains(CharPropFlags::READ)
-            //     if characteristic.properties.contains(CharPropFlags::NOTIFY) {
-            //         println!("Subscribing to characteristic {:?}", characteristic.uuid);
-            //         peripheral.subscribe(&characteristic).await?;
-            //         // Print the first 4 notifications received.
-            //         let mut notification_stream = peripheral.notifications().await?.take(4);
-            //         // Process while the BLE connection is not broken or stopped.
-            //         while let Some(data) = notification_stream.next().await {
-            //             println!(
-            //                 "Received data from {:?} [{:?}]: {:?}",
-            //                 local_name, data.uuid, data.value
-            //             );
-            //         }
-            //     }
-            // }
-            // println!("Disconnecting from peripheral {:?}...", local_name);
-            // peripheral.disconnect().await?;
-        }
-        todo!();
+    pub fn new(
+        midi_tx: MidiOutputConnection,
+        messenger_rx: mpsc::Receiver<PasseriReq>,
+        addr: BLEAddr,
+    ) -> Result<Self> {
+        Ok(ReceiverThread {
+            midi_tx,
+            distant: addr,
+            messenger_rx,
+        })
     }
 
-    // async fn find_peripheral(
-    //     peripheral: Peripheral,
-    //     name: &str,
-    //     flag: CharPropFlags,
-    // ) -> Option<Peripheral> {
-    //     let properties = peripheral.properties().await.ok()?;
-    //     // let is_connected = peripheral.is_connected().await.ok()?;
-    //     let local_name = properties
-    //         .unwrap()
-    //         .local_name
-    //         .unwrap_or(String::from("(peripheral name unknown)"));
-    //     // println!(
-    //     //     "Peripheral {:?} is connected: {:?}",
-    //     //     &local_name, is_connected
-    //     // );
-    //     // Check if it's the peripheral we want.
-    //     if !local_name.contains(name) {
-    //         return None;
-    //     }
-    //     println!("Found matching peripheral {:?}...", &local_name);
-    //     // if !is_connected {
-    //     //     // Connect if we aren't already connected.
-    //     //     if let Err(err) = peripheral.connect().await {
-    //     //         eprintln!("Error connecting to peripheral, skipping: {}", err);
-    //     //         continue;
-    //     //     }
-    //     // }
-    //     let is_connected = peripheral.is_connected().await.ok()?;
-    //     println!(
-    //         "Now connected ({:?}) to peripheral {:?}.",
-    //         is_connected, &local_name
-    //     );
-    //     if !is_connected {
-    //         return None;
-    //     }
-    //     println!("Discover peripheral {:?} services...", local_name);
-    //     peripheral.discover_services().await.ok()?;
+    pub fn run(&mut self) -> std::result::Result<(), ThreadReturn<Response>> {
+        loop {
+            let (req, responder) = self
+                .messenger_rx
+                .recv()
+                .expect("unable to read from the messenger tunnel");
+            match req {
+                Request::Receive => self.receive(responder)?,
+            }
+        }
+    }
 
-    //     peripheral
-    //         .characteristics()
-    //         .iter()
-    //         .find(|char| char.properties.contains(flag))?;
+    /// Starting to listen over UDP socket for
+    fn receive(&mut self, responder: Responder) -> std::result::Result<(), ThreadReturn<Response>> {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(self.async_recv(responder))
+    }
 
-    //     Some(peripheral)
-    // }
+    pub fn async_recv(&mut self, responder: Responder) {
+        self.distant.peripheral.characteristics();
+
+        // println!("Subscribing to characteristic {:?}", characteristic.uuid);
+        self.distant.subscribe(&characteristic).await?;
+        // Print the first 4 notifications received.
+        let mut notification_stream = peripheral.notifications().await?.take(4);
+        // Process while the BLE connection is not broken or stopped.
+        while let Some(data) = notification_stream.next().await {
+            println!(
+                "Received data from {:?} [{:?}]: {:?}",
+                local_name, data.uuid, data.value
+            );
+        }
+    }
 }
+
+// for characteristic in peripheral.characteristics() {
+//     println!("Checking characteristic {:?}", characteristic);
+//     // Subscribe to notifications from the characteristic with the selected
+//     // UUID.
+//     // if characteristic.properties.contains(CharPropFlags::READ)
+//     if characteristic.properties.contains(CharPropFlags::NOTIFY) {
+//         println!("Subscribing to characteristic {:?}", characteristic.uuid);
+//         peripheral.subscribe(&characteristic).await?;
+//         // Print the first 4 notifications received.
+//         let mut notification_stream = peripheral.notifications().await?.take(4);
+//         // Process while the BLE connection is not broken or stopped.
+//         while let Some(data) = notification_stream.next().await {
+//             println!(
+//                 "Received data from {:?} [{:?}]: {:?}",
+//                 local_name, data.uuid, data.value
+//             );
+//         }
+//     }
+// }

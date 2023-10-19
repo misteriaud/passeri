@@ -6,7 +6,7 @@ use std::net::{SocketAddr, TcpStream};
 use std::sync::mpsc;
 use std::thread::JoinHandle;
 
-type RTPPayload = (Request, Responder);
+type PasseriReq = (Request, Responder);
 
 use passeri_core::net::Result;
 use std::io::Read;
@@ -16,7 +16,7 @@ use super::ThreadReturn;
 /// `passeri_core::net::Receiver` trait implementation over TCP
 pub struct Receiver {
     thread: JoinHandle<ThreadReturn<Response>>,
-    tx: mpsc::Sender<RTPPayload>,
+    tx: mpsc::Sender<PasseriReq>,
     socket_addr: Option<SocketAddr>,
 }
 
@@ -25,7 +25,7 @@ impl passeri_core::net::Receiver for Receiver {
     type ThreadReturn = ThreadReturn<Response>;
 
     fn new(midi_out: MidiOutputConnection, addr: Self::Addr) -> Result<Self> {
-        let (tx, rx) = mpsc::channel::<RTPPayload>();
+        let (tx, rx) = mpsc::channel::<PasseriReq>();
 
         let mut socket = ReceiverThread::new(midi_out, rx, addr)?;
 
@@ -62,13 +62,13 @@ impl passeri_core::net::Receiver for Receiver {
 struct ReceiverThread {
     midi_tx: MidiOutputConnection,
     distant: TcpStream,
-    messenger_rx: mpsc::Receiver<RTPPayload>,
+    messenger_rx: mpsc::Receiver<PasseriReq>,
 }
 
 impl ReceiverThread {
     pub fn new(
         midi_tx: MidiOutputConnection,
-        messenger_rx: mpsc::Receiver<RTPPayload>,
+        messenger_rx: mpsc::Receiver<PasseriReq>,
         addr: SocketAddr,
     ) -> Result<Self> {
         Ok(ReceiverThread {
