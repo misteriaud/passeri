@@ -6,8 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-passeri-core = { path = "../passeri-core" }
+passeri-api = { path = "../passeri-api" }
 log = "0.4.20"
 oneshot = "0.1.6"
-thiserror = "1.0.49"
 midir = "0.9.1"
+
+[dev-dependencies]
+env_logger = "0.10.0"

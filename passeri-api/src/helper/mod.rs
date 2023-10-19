@@ -4,22 +4,22 @@ use crate::{
 };
 use midir::MidiInputConnection;
 
-pub fn new_sender<T: net::Sender>(
+pub fn new_sender<T: net::SenderThread>(
     midi_port_index: usize,
     messenger_addr: T::Addr,
-) -> Result<(MidiInputConnection<()>, T)> {
+) -> Result<net::Sender<T>> {
     let (conn, rx) = midi::new_receiver(midi_port_index)?;
-    let net = T::new(rx, messenger_addr)?;
+    let net = net::Sender::<T>::new(conn, rx, messenger_addr)?;
 
-    Ok((conn, net))
+    Ok(net)
 }
 
-pub fn new_receiver<T: net::Receiver>(
+pub fn new_receiver<T: net::ReceiverThread>(
     midi_port_index: usize,
     messenger_addr: T::Addr,
-) -> Result<T> {
+) -> Result<net::Receiver> {
     let conn = midi::new_sender(midi_port_index)?;
-    let net = T::new(conn, messenger_addr)?;
+    let net = net::Receiver::new::<T>(conn, messenger_addr)?;
 
     Ok(net)
 }

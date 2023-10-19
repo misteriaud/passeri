@@ -1,84 +1,46 @@
-use log::{info, trace};
+use log::{error, trace};
 use midir::MidiOutputConnection;
-use passeri_core::midi::MidiFrame;
-use passeri_core::net::receiver::{self, Request, Responder, Response};
+use passeri_api::midi::MidiFrame;
+use passeri_api::net::receiver::{self, Request, Responder, Response};
+use receiver::ThreadReturn;
 use std::net::{SocketAddr, TcpStream};
 use std::sync::mpsc;
-use std::thread::JoinHandle;
 
 type PasseriReq = (Request, Responder);
 
-use passeri_core::net::Result;
+use passeri_api::net::{ReceiverThread, Result};
 use std::io::Read;
 
-use super::ThreadReturn;
-
-/// `passeri_core::net::Receiver` trait implementation over TCP
 pub struct Receiver {
-    thread: JoinHandle<ThreadReturn<Response>>,
-    tx: mpsc::Sender<PasseriReq>,
-    socket_addr: Option<SocketAddr>,
-}
-
-impl passeri_core::net::Receiver for Receiver {
-    type Addr = SocketAddr;
-    type ThreadReturn = ThreadReturn<Response>;
-
-    fn new(midi_out: MidiOutputConnection, addr: Self::Addr) -> Result<Self> {
-        let (tx, rx) = mpsc::channel::<PasseriReq>();
-
-        let mut socket = ReceiverThread::new(midi_out, rx, addr)?;
-
-        let thread = std::thread::spawn(move || socket.run().unwrap_err());
-
-        Ok(Receiver {
-            thread,
-            tx,
-            socket_addr: None,
-        })
-    }
-
-    fn receive(self) -> Result<Self::ThreadReturn> {
-        let (response_sender, response_receiver) = oneshot::channel();
-        self.tx.send((Request::Receive, response_sender))?;
-
-        match response_receiver.recv()? {
-            receiver::Response::StartReceiving => {
-                info!("received ListenStream");
-                Ok(self.thread.join().unwrap_or(ThreadReturn::JoinError))
-            }
-            receiver::Response::Err(err) => Err(err.into()),
-        }
-    }
-
-    fn info(&self) -> String {
-        match self.socket_addr {
-            Some(addr) => format!("addr1: {}", addr),
-            None => String::new(),
-        }
-    }
-}
-
-struct ReceiverThread {
     midi_tx: MidiOutputConnection,
     distant: TcpStream,
     messenger_rx: mpsc::Receiver<PasseriReq>,
 }
 
-impl ReceiverThread {
-    pub fn new(
+impl ReceiverThread for Receiver {
+    type Addr = SocketAddr;
+
+    fn new(
         midi_tx: MidiOutputConnection,
         messenger_rx: mpsc::Receiver<PasseriReq>,
         addr: SocketAddr,
     ) -> Result<Self> {
-        Ok(ReceiverThread {
-            midi_tx: midi_tx,
-            distant: TcpStream::connect(addr)?,
+        let distant = match TcpStream::connect(addr) {
+            Ok(result) => result,
+            Err(err) => {
+                error!("fail to connect to {}", addr);
+                return Err(Box::new(err));
+            }
+        };
+
+        Ok(Receiver {
+            midi_tx,
+            distant: distant,
             messenger_rx,
         })
     }
 
-    pub fn run(&mut self) -> std::result::Result<(), ThreadReturn<Response>> {
+    fn run(&mut self) -> std::result::Result<(), ThreadReturn> {
         loop {
             let (req, responder) = self
                 .messenger_rx
@@ -90,7 +52,7 @@ impl ReceiverThread {
         }
     }
     /// Starting to listen over UDP socket for
-    fn receive(&mut self, responder: Responder) -> std::result::Result<(), ThreadReturn<Response>> {
+    fn receive(&mut self, responder: Responder) -> std::result::Result<(), ThreadReturn> {
         let mut buf: [u8; 33] = [0; 33];
         responder.send(Response::StartReceiving)?;
         loop {
@@ -107,5 +69,12 @@ impl ReceiverThread {
                 .map_err(|err| ThreadReturn::MidiSendError(err))?;
             trace!("MIDI -> {} bytes", len);
         }
+    }
+
+    fn info(&self) -> String {
+        format!(
+            "Tcp Receiver is connect to {}",
+            self.distant.local_addr().unwrap()
+        )
     }
 }

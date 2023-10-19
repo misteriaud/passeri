@@ -3,23 +3,23 @@ use std::{
     process::exit,
 };
 
-use passeri_core::net::Sender;
-
 fn main() {
-    let listening_addr = SocketAddr::new(std::net::IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 0);
+    env_logger::init();
 
-    let (_midi_instance, net_instance) =
-        passeri_core::new_sender::<passeri_tcp::Sender>(0, listening_addr).unwrap_or_else(|err| {
+    let listening_addr = SocketAddr::new(std::net::IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 4242);
+
+    let sender =
+        passeri_api::new_sender::<passeri_tcp::Sender>(0, listening_addr).unwrap_or_else(|err| {
             println!("Error while trying to create binding: {}", err);
             exit(1);
         });
 
-    println!("{}", net_instance.info());
+    // println!("{}", net_instance.info());
 
-    match net_instance.wait_for_client() {
+    match sender.wait_for_client() {
         Ok(addr) => {
             println!("{} is now connected", addr);
-            match net_instance.send(addr) {
+            match sender.send(addr) {
                 Ok(thread_resp) => println!("the net thread ended: {:?}", thread_resp),
                 Err(err) => println!("err: {}", err),
             }
