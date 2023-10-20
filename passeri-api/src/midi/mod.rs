@@ -57,14 +57,15 @@ pub fn new_sender(midi_port_index: usize) -> Result<MidiOutputConnection, String
 /// * `midi_port_index` - Index of a MIDI output port (you can get it from a [get_availables_midi_port] function call)
 pub fn new_receiver(
     midi_port_index: usize,
+    midi_port_name: String,
 ) -> Result<(MidiInputConnection<()>, Receiver<MidiPayload>), String> {
-    let mut midi_in = MidiInput::new(LISTEN_PORT_NAME).expect("unable to create the lookup port");
+    let mut midi_in = MidiInput::new(&midi_port_name).expect("unable to create the lookup port");
     midi_in.ignore(Ignore::None);
-    info!("MIDI-IN port is set up to: {}", LISTEN_PORT_NAME);
+    info!("MIDI-IN port is set up to: {}", midi_port_name);
 
     match midi_in.ports().get(midi_port_index) {
         Some(port) => {
-            info!("midi_thread is running for {}", LISTEN_PORT_NAME);
+            info!("midi_thread is running for {}", midi_port_name);
             let (tx, rx) = channel::<MidiPayload>();
 
             match midi_in.connect(

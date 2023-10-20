@@ -130,8 +130,9 @@ pub trait Thread {
 /// [Sender instance](Sender) used to bridge local MIDI messages to distant receiver over network (implemented by [net_thread](Thread))
 pub struct Sender<T: Thread> {
     _midi_thread: MidiInputConnection<()>,
-    net_thread: JoinHandle<ThreadReturn<T::Addr>>,
+    net_thread: Option<JoinHandle<ThreadReturn<T::Addr>>>,
     tx: mpsc::Sender<PasseriReq<T::Addr>>,
+    info: String,
 }
 impl<T: Thread> Sender<T> {
     /// Create a new [Sender instance](Sender) (it is recommended to use the [new_sender()][crate::new_sender] function)
@@ -141,14 +142,14 @@ impl<T: Thread> Sender<T> {
         addr: T::Addr,
     ) -> Result<Self> {
         let (tx, rx) = mpsc::channel::<PasseriReq<T::Addr>>();
-        let (init_tx, init_rx) = oneshot::channel::<std::result::Result<(), String>>();
+        let (init_tx, init_rx) = oneshot::channel::<std::result::Result<String, String>>();
 
         // let socket_addr = socket.get_addr();
 
-        let net_thread = std::thread::spawn(move || {
+        let net_thread = Some(std::thread::spawn(move || {
             let mut socket = match T::new(addr, midi_rx, rx) {
                 Ok(res) => {
-                    init_tx.send(Ok(())).unwrap();
+                    init_tx.send(Ok(res.info())).unwrap();
                     res
                 }
                 Err(err) => {
@@ -160,14 +161,15 @@ impl<T: Thread> Sender<T> {
             info!("{}", socket.info());
 
             socket.run().unwrap_err()
-        });
+        }));
 
-        init_rx.recv()??;
+        let info = init_rx.recv()??;
 
         Ok(Sender {
             _midi_thread,
             net_thread,
             tx,
+            info,
         })
     }
 
@@ -183,7 +185,7 @@ impl<T: Thread> Sender<T> {
     }
 
     /// Start forwarding local MIDI messages to distant receiver over network
-    pub fn send(self, client: T::Addr) -> Result<ThreadReturn<T::Addr>> {
+    pub fn send(&self, client: T::Addr) -> Result<()> {
         let (response_sender, response_receiver) = oneshot::channel();
         self.tx
             .send((Request::AcceptClient(client), response_sender))?;
@@ -191,16 +193,22 @@ impl<T: Thread> Sender<T> {
         match response_receiver.recv()? {
             Response::StartStream => {
                 trace!("received StartStream");
-                Ok(self.net_thread.join().unwrap_or(ThreadReturn::JoinError))
+                Ok(())
             }
             _ => Err("invalid response from tcp_thread".into()),
         }
     }
 
-    // pub fn info(&self) -> String {
-    //     match self.addr {
-    //         Some(addr) => format!("addr: {:?}", addr),
-    //         None => String::new(),
-    //     }
-    // }
+    pub fn join(&mut self) -> Result<ThreadReturn<T::Addr>> {
+        Ok(self
+            .net_thread
+            .take()
+            .unwrap()
+            .join()
+            .unwrap_or(ThreadReturn::JoinError))
+    }
+
+    pub fn info(&self) -> String {
+        self.info.clone()
+    }
 }

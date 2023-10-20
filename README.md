@@ -25,7 +25,7 @@ It is build on a parallel blocking architecture composed of 3 threads:
 	- [ ] Documentation
 	- [ ] Testing
 	- [ ] Benchmark
-- [ ] GUI using Tauri
+- [ ] GUI using [Tauri](https://github.com/tauri-apps/tauri)
 
 # Examples
 Some examples are available in the `examples/` directory.

@@ -4,5 +4,6 @@ resolver = "2"
 members = [
     "passeri-api",
 	"passeri-tcp",
-	"passeri-bluetooth"
+	"passeri-bluetooth",
+	"passeri-gui/src-tauri"
 ]
