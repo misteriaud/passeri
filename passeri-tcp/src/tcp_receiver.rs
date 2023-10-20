@@ -1,4 +1,4 @@
-use log::{debug, error, info, trace};
+use log::{debug, error, trace};
 use midir::MidiOutputConnection;
 use passeri_api::midi::MidiFrame;
 use passeri_api::net::receiver::{self, Request, Responder, Response};
@@ -8,7 +8,7 @@ use std::sync::mpsc;
 
 type PasseriReq = (Request, Responder);
 
-use passeri_api::net::{ReceiverThread, Result};
+use passeri_api::net::ReceiverThread;
 use std::io::Read;
 
 pub struct Receiver {
@@ -21,16 +21,15 @@ impl ReceiverThread for Receiver {
     type Addr = SocketAddr;
 
     fn new(
+        addr: SocketAddr,
         midi_tx: MidiOutputConnection,
         messenger_rx: mpsc::Receiver<PasseriReq>,
-        addr: SocketAddr,
-    ) -> Result<Self> {
+    ) -> Result<Self, String> {
         debug!("try to connect to {}", addr);
         let distant = match TcpStream::connect(addr) {
             Ok(result) => result,
             Err(err) => {
-                error!("fail to connect to {}", addr);
-                return Err(Box::new(err));
+                return Err(format!("{}", err));
             }
         };
 
@@ -41,7 +40,7 @@ impl ReceiverThread for Receiver {
         })
     }
 
-    fn run(&mut self) -> std::result::Result<(), ThreadReturn> {
+    fn run(&mut self) -> Result<(), ThreadReturn> {
         loop {
             let (req, responder) = self
                 .messenger_rx
@@ -53,7 +52,7 @@ impl ReceiverThread for Receiver {
         }
     }
     /// Starting to listen over UDP socket for
-    fn receive(&mut self, responder: Responder) -> std::result::Result<(), ThreadReturn> {
+    fn receive(&mut self, responder: Responder) -> Result<(), ThreadReturn> {
         let mut buf: [u8; 33] = [0; 33];
         responder.send(Response::StartReceiving)?;
         loop {
@@ -74,7 +73,7 @@ impl ReceiverThread for Receiver {
 
     fn info(&self) -> String {
         format!(
-            "Tcp Receiver is connect to {}",
+            "Tcp Receiver is connected to {}",
             self.distant.local_addr().unwrap()
         )
     }

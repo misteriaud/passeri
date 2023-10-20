@@ -1,19 +1,12 @@
-use passeri_api::net::{self, sender, Result};
+use passeri_api::net::{self, sender};
 use sender::{PasseriReq, Request, Responder, Response, ThreadReturn};
 use std::collections::HashMap;
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::mpsc::{self};
 
-use log::{error, trace};
+use log::trace;
 use passeri_api::midi::MidiPayload;
 use std::io::Write;
-
-// use super::ThreadReturn;
-
-// type Request = sender::Request<<Sender as passeri_api::net::Sender>::Addr>;
-// type Response = sender::Response<<Sender as passeri_api::net::Sender>::Addr>;
-// type Responder = sender::Responder<<Sender as passeri_api::net::Sender>::Addr>;
-// type RTPPayload = (Request, Responder);
 
 /// `passeri_api::net::Sender` trait implementation over TCP
 type Addr = <Sender as net::SenderThread>::Addr;
@@ -32,12 +25,12 @@ impl net::SenderThread for Sender {
         addr: Self::Addr,
         midi_rx: mpsc::Receiver<MidiPayload>,
         messenger_rx: mpsc::Receiver<net::sender::PasseriReq<Self::Addr>>,
-    ) -> Result<Self> {
+    ) -> Result<Self, String> {
         let local = match TcpListener::bind(addr) {
             Ok(result) => result,
             Err(err) => {
-                error!("fail to bind on {}", addr);
-                return Err(Box::new(err));
+                // error!("fail to bind on {}", addr);
+                return Err(format!("{}", err));
             }
         };
 
@@ -49,7 +42,7 @@ impl net::SenderThread for Sender {
         })
     }
 
-    fn run(&mut self) -> std::result::Result<(), ThreadReturn<Self::Addr>> {
+    fn run(&mut self) -> Result<(), ThreadReturn<Self::Addr>> {
         loop {
             let (req, responder) = self
                 .messenger_rx
@@ -67,7 +60,7 @@ impl net::SenderThread for Sender {
         &mut self,
         distant: SocketAddr,
         responder: Responder<Self::Addr>,
-    ) -> std::result::Result<(), ThreadReturn<Self::Addr>> {
+    ) -> Result<(), ThreadReturn<Self::Addr>> {
         if let Some(mut stream) = self.distant.remove(&distant) {
             responder.send(Response::StartStream).unwrap();
             while let Some(msg) = self.midi_rx.iter().next() {
@@ -92,10 +85,7 @@ impl net::SenderThread for Sender {
 
 impl Sender {
     /// Starting to listen over UDP socket for
-    fn open_room(
-        &mut self,
-        responder: Responder<Addr>,
-    ) -> std::result::Result<(), ThreadReturn<Addr>> {
+    fn open_room(&mut self, responder: Responder<Addr>) -> Result<(), ThreadReturn<Addr>> {
         let (distant, addr) = self.local.accept()?;
         self.distant.insert(addr, distant);
         responder

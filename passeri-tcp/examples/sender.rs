@@ -1,29 +1,36 @@
-use std::{
-    net::{Ipv4Addr, SocketAddr},
-    process::exit,
-};
+use std::{env, net::SocketAddr, process::exit, str::FromStr};
+
+use log::{error, info};
 
 fn main() {
-    env_logger::init();
+    env_logger::builder()
+        .filter_level(log::LevelFilter::Debug)
+        .init();
 
-    let listening_addr = SocketAddr::new(std::net::IpAddr::V4(Ipv4Addr::new(10, 34, 9, 1)), 8080);
+    let args: Vec<String> = env::args().collect();
+    if args.len() < 2 {
+        error!("Usage:\n\tsender <address>");
+        exit(1);
+    }
 
-    let sender =
-        passeri_api::new_sender::<passeri_tcp::Sender>(0, listening_addr).unwrap_or_else(|err| {
-            println!("Error while trying to create binding: {}", err);
-            exit(1);
-        });
+    let addr = SocketAddr::from_str(&args[1]).expect("error while parsing address argument");
 
-    // println!("{}", net_instance.info());
+    let sender = passeri_api::new_sender::<passeri_tcp::Sender>(0, addr).unwrap_or_else(|err| {
+        error!(
+            "Err: unable to initialize Sender on address \"{}\" ({})",
+            &args[1], err
+        );
+        exit(1);
+    });
 
     match sender.wait_for_client() {
         Ok(addr) => {
-            println!("{} is now connected", addr);
+            info!("{} is now connected", addr);
             match sender.send(addr) {
-                Ok(thread_resp) => println!("the net thread ended: {:?}", thread_resp),
-                Err(err) => println!("err: {}", err),
+                Ok(thread_resp) => info!("the net thread ended: {:?}", thread_resp),
+                Err(err) => error!("err: {}", err),
             }
         }
-        Err(err) => println!("{}", err),
+        Err(err) => error!("error trying to wait_for_client: {}", err),
     }
 }

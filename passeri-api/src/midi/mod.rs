@@ -38,10 +38,10 @@ pub type MidiPayload = (u64, MidiFrame);
 /// * `midi_port_index` - Index of a MIDI output port (you can get it from a [get_availables_midi_port] function call)
 pub fn new_sender(midi_port_index: usize) -> Result<MidiOutputConnection, String> {
     let midi_out = MidiOutput::new(EMITTER_PORT_NAME).expect("unable to create the lookup port");
-    info!("midi out is set up to: {}", EMITTER_PORT_NAME);
+    info!("MIDI-OUT port is set up to: {}", EMITTER_PORT_NAME);
 
     if let Some(port) = midi_out.ports().get(midi_port_index) {
-        info!("routine is setup for {}", EMITTER_PORT_NAME);
+        info!("midi_thread is running for {}", EMITTER_PORT_NAME);
         if let Ok(conn) = midi_out.connect(port, "midir-read-input") {
             return Ok(conn);
         }
@@ -59,11 +59,11 @@ pub fn new_receiver(
 ) -> Result<(MidiInputConnection<()>, Receiver<MidiPayload>), String> {
     let mut midi_in = MidiInput::new(LISTEN_PORT_NAME).expect("unable to create the lookup port");
     midi_in.ignore(Ignore::None);
-    info!("midi in port is set up to: {}", LISTEN_PORT_NAME);
+    info!("MIDI-IN port is set up to: {}", LISTEN_PORT_NAME);
 
     match midi_in.ports().get(midi_port_index) {
         Some(port) => {
-            info!("routine is setup for {}", LISTEN_PORT_NAME);
+            info!("midi_thread is running for {}", LISTEN_PORT_NAME);
             let (tx, rx) = channel::<MidiPayload>();
 
             match midi_in.connect(

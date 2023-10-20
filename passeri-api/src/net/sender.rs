@@ -76,7 +76,7 @@ pub trait SenderThread {
         addr: Self::Addr,
         midi_rx: mpsc::Receiver<MidiPayload>,
         messenger_rx: mpsc::Receiver<PasseriReq<Self::Addr>>,
-    ) -> Result<Self>
+    ) -> std::result::Result<Self, String>
     where
         Self: Sized;
 
@@ -109,18 +109,28 @@ impl<T: SenderThread> Sender<T> {
         addr: T::Addr,
     ) -> Result<Self> {
         let (tx, rx) = mpsc::channel::<PasseriReq<T::Addr>>();
+        let (init_tx, init_rx) = oneshot::channel::<std::result::Result<(), String>>();
 
         // let socket_addr = socket.get_addr();
 
-        let net_thread = std::thread::spawn(|| {
-            let Ok(mut socket) = T::new(addr, midi_rx, rx) else {
-                return ThreadReturn::InitError;
+        let net_thread = std::thread::spawn(move || {
+            let mut socket = match T::new(addr, midi_rx, rx) {
+                Ok(res) => {
+                    init_tx.send(Ok(())).unwrap();
+                    res
+                }
+                Err(err) => {
+                    init_tx.send(Err(err)).unwrap();
+                    return ThreadReturn::InitError;
+                }
             };
 
             info!("{}", socket.info());
 
             socket.run().unwrap_err()
         });
+
+        init_rx.recv()??;
 
         Ok(Sender {
             _midi_thread,

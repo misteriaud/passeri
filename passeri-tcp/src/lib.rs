@@ -3,10 +3,10 @@
 
 use std::sync::mpsc::RecvError;
 
-mod receiver;
-pub use receiver::Receiver;
-mod sender;
-pub use sender::Sender;
+mod tcp_receiver;
+pub use tcp_receiver::Receiver;
+mod tcp_sender;
+pub use tcp_sender::Sender;
 // pub use sender::Sender;
 
 // /// Possible thread return values of the TCP Sender and Receiver

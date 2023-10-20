@@ -72,10 +72,10 @@ pub trait ReceiverThread {
     type Addr: 'static + Send;
 
     fn new(
+        addr: Self::Addr,
         midi_tx: MidiOutputConnection,
         messenger_rx: mpsc::Receiver<PasseriReq>,
-        addr: Self::Addr,
-    ) -> Result<Self>
+    ) -> std::result::Result<Self, String>
     where
         Self: Sized;
     fn run(&mut self) -> std::result::Result<(), ThreadReturn>;
@@ -94,18 +94,28 @@ pub struct Receiver {
 }
 
 impl Receiver {
-    pub fn new<T: ReceiverThread>(midi_out: MidiOutputConnection, addr: T::Addr) -> Result<Self> {
+    pub fn new<T: ReceiverThread>(midi_tx: MidiOutputConnection, addr: T::Addr) -> Result<Self> {
         let (tx, rx) = mpsc::channel::<PasseriReq>();
+        let (init_tx, init_rx) = oneshot::channel::<std::result::Result<(), String>>();
 
         let net_thread = std::thread::spawn(|| {
-            let Ok(mut socket) = T::new(midi_out, rx, addr) else {
-                return ThreadReturn::InitError;
+            let mut socket = match T::new(addr, midi_tx, rx) {
+                Ok(res) => {
+                    init_tx.send(Ok(())).unwrap();
+                    res
+                }
+                Err(err) => {
+                    init_tx.send(Err(err)).unwrap();
+                    return ThreadReturn::InitError;
+                }
             };
 
             info!("{}", socket.info());
 
             socket.run().unwrap_err()
         });
+
+        init_rx.recv()??;
 
         Ok(Receiver { net_thread, tx })
     }
