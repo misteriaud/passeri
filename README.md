@@ -14,13 +14,16 @@ This architecture have been chosen over concurrent one for its efficiency.
 	- [x] MIDI sender
 	- [x] MIDI receiver
 - [X] Network api development ([passeri-api])
-	- [ ] trait description
+	- [x] Trait description
+	- [x] Documentation
 - [ ] TCP implementation ([passeri-tcp])
 	- [X] PoC
+	- [ ] Documentation
 	- [ ] Testing
 	- [ ] Benchmark
 - [ ] Bluetooth implementation ([passeri-bluetooth]) following [BLE MIDI](https://hangar42.nl/wp-content/uploads/2017/10/BLE-MIDI-spec.pdf)
 	- [ ] PoC
+	- [ ] Documentation
 	- [ ] Testing
 	- [ ] Benchmark
 - [ ] GUI using Tauri

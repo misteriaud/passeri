@@ -127,12 +127,14 @@ pub trait Thread {
 //	Sender<T> implementation
 //
 
+/// [Sender instance](Sender) used to bridge local MIDI messages to distant receiver over network (implemented by [net_thread](Thread))
 pub struct Sender<T: Thread> {
     _midi_thread: MidiInputConnection<()>,
     net_thread: JoinHandle<ThreadReturn<T::Addr>>,
     tx: mpsc::Sender<PasseriReq<T::Addr>>,
 }
 impl<T: Thread> Sender<T> {
+    /// Create a new [Sender instance](Sender) (it is recommended to use the [new_sender()][crate::new_sender] function)
     pub fn new(
         _midi_thread: MidiInputConnection<()>,
         midi_rx: mpsc::Receiver<MidiPayload>,
@@ -169,6 +171,7 @@ impl<T: Thread> Sender<T> {
         })
     }
 
+    /// listen for possible distant receiver client
     pub fn wait_for_client(&self) -> Result<T::Addr> {
         let (response_sender, response_receiver) = oneshot::channel();
         self.tx.send((Request::OpenRoom, response_sender))?;
@@ -178,6 +181,8 @@ impl<T: Thread> Sender<T> {
             _ => Err("invalid response from tcp_thread".into()),
         }
     }
+
+    /// Start forwarding local MIDI messages to distant receiver over network
     pub fn send(self, client: T::Addr) -> Result<ThreadReturn<T::Addr>> {
         let (response_sender, response_receiver) = oneshot::channel();
         self.tx

@@ -16,7 +16,6 @@ pub enum Request {
 pub enum Response {
     /// notify that [net_thread](Thread) start to receive from distant sender
     StartReceiving,
-    Err(String),
 }
 
 /// Oneshot tunnel letting the [net_thread](Thread) return [Response] to the [Receiver instance](Receiver)
@@ -113,12 +112,14 @@ pub trait Thread {
 //	Receiver<T> implementation
 //
 
+/// [Receiver instance](Receiver) used to bridge an incomming network stream (implemented by [net_thread](Thread)) to an output MIDI port
 pub struct Receiver {
     net_thread: JoinHandle<ThreadReturn>,
     tx: mpsc::Sender<PasseriReq>,
 }
 
 impl Receiver {
+    /// Create a new [Receiver instance](Receiver) (it is recommended to use the [new_receiver()][crate::new_receiver] function)
     pub fn new<T: Thread>(midi_tx: MidiOutputConnection, addr: T::Addr) -> Result<Self> {
         let (tx, rx) = mpsc::channel::<PasseriReq>();
         let (init_tx, init_rx) = oneshot::channel::<std::result::Result<(), String>>();
@@ -145,6 +146,7 @@ impl Receiver {
         Ok(Receiver { net_thread, tx })
     }
 
+    /// Start forwarding network stream from [net_thread](Thread) to output MIDI port
     pub fn receive(self) -> Result<ThreadReturn> {
         let (response_sender, response_receiver) = oneshot::channel();
         self.tx.send((Request::Receive, response_sender))?;
@@ -154,7 +156,6 @@ impl Receiver {
                 info!("received ListenStream");
                 Ok(self.net_thread.join().unwrap_or(ThreadReturn::JoinError))
             }
-            Response::Err(err) => Err(err.into()),
         }
     }
 
