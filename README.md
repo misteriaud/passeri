@@ -1,11 +1,9 @@
-Passeri is a [MIDI](https://en.wikipedia.org/wiki/MIDI) **Sender**/**Receiver** over Network (*TCP*, *Bluetooth*, and other to come).
+Passeri is a [MIDI](https://en.wikipedia.org/wiki/MIDI) **Sender**/**Receiver** bridge over Network (*TCP*, *Bluetooth*, and other to come).
 
 It is build on a parallel blocking architecture composed of 3 threads:
-- `main_thread`
-- `midi_thread`
-- `network_thread`
-
-This architecture have been chosen over concurrent one for its efficiency.
+- `main_thread` where the bridge reside
+- `midi_thread` which is in charge of communication with local midi ports
+- `network_thread` which forward or receive MIDI messages on given network
 
 **Passeri** is shipped with a couple of helper functions to make it easier to use.
 
@@ -13,15 +11,16 @@ This architecture have been chosen over concurrent one for its efficiency.
 - [X] MIDI thread implementation
 	- [x] MIDI sender
 	- [x] MIDI receiver
-- [X] Network api development ([passeri-api])
+- [X] Bridge api development ([passeri-api](passeri-api))
 	- [x] Trait description
+	- [x] Sender and Receiver implementation
 	- [x] Documentation
-- [ ] TCP implementation ([passeri-tcp])
+- [ ] TCP implementation ([passeri-tcp](passeri-tcp))
 	- [X] PoC
 	- [ ] Documentation
 	- [ ] Testing
 	- [ ] Benchmark
-- [ ] Bluetooth implementation ([passeri-bluetooth]) following [BLE MIDI](https://hangar42.nl/wp-content/uploads/2017/10/BLE-MIDI-spec.pdf)
+- [ ] Bluetooth implementation ([passeri-bluetooth](passeri-bluetooth)) following [BLE MIDI](https://hangar42.nl/wp-content/uploads/2017/10/BLE-MIDI-spec.pdf)
 	- [ ] PoC
 	- [ ] Documentation
 	- [ ] Testing
@@ -37,18 +36,13 @@ A very simple set of Sender and Receiver using TCP Network can be run as followi
 ### Sender
 First let's run the Sender:
 ```sh
-cargo run --example sender
-```
-It will print the address on which it is waiting for a receiver
-e.g:
-```
-127.0.0.1:52452 is now connected
+cargo run --example sender 127.0.0.1:8080
 ```
 
 ### Receiver
 you can then connect to it using the following command
 ```sh
-cargo run --example receiver -- 127.0.0.1:52452
+cargo run --example receiver -- 127.0.0.1:8080
 ```
 
 ## License
