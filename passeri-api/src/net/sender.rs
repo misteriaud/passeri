@@ -3,28 +3,40 @@ pub use crate::net::Result;
 use log::{error, info, trace};
 use midir::MidiInputConnection;
 use std::{
-    fmt::{Debug, Display},
+    fmt::Debug,
     sync::mpsc::{self},
     thread::JoinHandle,
 };
 
+/// Set of requests send by the [Sender instance](Sender) to the [net_thread](Thread).
+/// It have to be able to process all these requests to be compliant with this [Sender instance](Sender).
 pub enum Request<Addr> {
-    OpenRoom,           // block on listening for invitation
-    AcceptClient(Addr), // initiator_token / accept invitation and forward all midi received
+    /// start listening on the provided address for potential receiver client
+    OpenRoom,
+    /// start to stream [crate::midi::MidiFrame] to the given address (obtained by the `OpenRoom` request)
+    AcceptClient(Addr),
 }
+
+/// Set of responses that can return the [net_thread](Thread) to the [Sender instance](Sender) after receiving [Request].
 #[derive(Debug)]
 pub enum Response<Addr> {
+    /// received a new potential receiver client
     NewClient(Addr),
+    /// notify that sender thread start to stream incomming MIDI to receiver client
     StartStream,
+    /// response that have to be return in case of a [Request::AcceptClient] request before a [Request::OpenRoom] one
     ClientNotFound,
 }
+
+/// Oneshot tunnel letting the [net_thread](Thread) return [Response] to the [Sender instance](Sender)
 pub type Responder<Addr> = oneshot::Sender<Response<Addr>>;
 
 use thiserror::Error;
 
-/// Possible thread return values of the TCP Sender and Receiver
+/// Possible [thread join()](std::thread::JoinHandle::join) return values of the [net_thread](Thread) implementation
 #[derive(Error, Debug)]
 pub enum ThreadReturn<Addr> {
+    /// unable to init Sender
     #[error("unable to init Sender")]
     InitError,
     /// unable to get request from tunnel
@@ -67,11 +79,25 @@ pub enum ThreadReturn<Addr> {
 //
 //	SenderThread definition
 //
+
+/// Packet send to the [net_thread](Thread) containing the [Request] and the [Responder]
 pub type PasseriReq<Addr> = (Request<Addr>, Responder<Addr>);
 
-pub trait SenderThread {
+/// Minimum set of function that have to implement a [net_thread](Thread)
+///
+/// It is recommended to implement it as a background thread waiting for any incomming MIDI message from the `midi_rx` [mpsc::Receiver],
+/// then sending it over network to the connected receiver client.
+pub trait Thread {
+    /// Type used by the chosen Network Layer to describe addresses (e.g.: `SocketAddr` for TCP)
     type Addr: 'static + Send + Debug;
 
+    /// create a new Sender instance
+    ///
+    /// # Arguments
+    /// * `addr` -		the address on which the Network Layer have to bind to
+    /// * `midi_rx` -	[Receiver](mpsc::Receiver) from which the **SenderThread** will get timestamp and
+    /// 				[MidiFrame](crate::midi::MidiFrame) received by the midi thread
+    /// * `messenger_rx` - [Receiver](mpsc::Receiver) from which the **SenderThread** will get [Request] from the main thread
     fn new(
         addr: Self::Addr,
         midi_rx: mpsc::Receiver<MidiPayload>,
@@ -80,12 +106,20 @@ pub trait SenderThread {
     where
         Self: Sized;
 
+    /// implementation have to block reading on the `messenger_rx` [Receiver](mpsc::Receiver), processing each incomming [Request]
     fn run(&mut self) -> std::result::Result<(), ThreadReturn<Self::Addr>>;
+
+    /// implementation have to start forwarding local MIDI message to connected receiver client.
+    /// It have to notify the main thread that the stream is starting by a [Response::StartStream] [Response] and then looping over this way:
+    /// 	- blocking on reading `midi_rx` [Receiver](mpsc::Receiver)
+    /// 	- forwarding received message to the receiver client
     fn send(
         &mut self,
         distant: Self::Addr,
         responder: Responder<Self::Addr>,
     ) -> std::result::Result<(), ThreadReturn<Self::Addr>>;
+
+    /// return a informationnal string on the address on which is bound the sender thread
     fn info(&self) -> String;
 }
 
@@ -93,16 +127,12 @@ pub trait SenderThread {
 //	Sender<T> implementation
 //
 
-pub struct Sender<T: SenderThread> {
+pub struct Sender<T: Thread> {
     _midi_thread: MidiInputConnection<()>,
     net_thread: JoinHandle<ThreadReturn<T::Addr>>,
     tx: mpsc::Sender<PasseriReq<T::Addr>>,
 }
-
-impl<T: SenderThread> Sender<T> {
-    // type Addr = SocketAddr;
-    // type ThreadReturn = ThreadReturn<Response>;
-
+impl<T: Thread> Sender<T> {
     pub fn new(
         _midi_thread: MidiInputConnection<()>,
         midi_rx: mpsc::Receiver<MidiPayload>,
@@ -169,32 +199,3 @@ impl<T: SenderThread> Sender<T> {
     //     }
     // }
 }
-
-// /// Minimum set of function that have to implement a Network Sender
-// ///
-// /// It is recommended to implement it as a background thread waiting for any incomming MIDI message from the `mpsc::Receiver`,
-// /// then sending it over network to the connected Receiver client.
-// pub trait Sender {
-//     /// Type used by the chosen Network Layer to describe addresses (e.g.: `SocketAddr` for TCP)
-//     type Addr;
-//     /// Define the returning value of the background thread
-//     type ThreadReturn;
-
-//     /// create a new Sender instance
-//     ///
-//     /// # Arguments
-//     /// * `rx` - the receiving end of the tunnel used by the MIDI in thread to forward incomming MIDI messages
-//     /// * `addr` - the address on which the Network Layer have to bind to
-//     fn new(rx: mpsc::Receiver<MidiPayload>, addr: Self::Addr) -> Result<Self>
-//     where
-//         Self: Sized;
-
-//     /// waiting for any client trying to connect to the Sender
-//     fn wait_for_client(&self) -> Result<Self::Addr>;
-
-//     /// start to forward the local MIDI In message to the distant Receiver
-//     fn send(self, client: Self::Addr) -> Result<Self::ThreadReturn>;
-
-//     /// String describing the address used by the Network Layer
-//     fn info(&self) -> String;
-// }

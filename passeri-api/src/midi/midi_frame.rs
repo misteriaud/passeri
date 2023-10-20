@@ -2,6 +2,13 @@
 //	MIDI FRAME OVER NETWORK
 //
 
+/// Struct used to serialize and deserialize MIDI messages through network
+///
+/// the frame is composed of Nth bytes:
+/// - Byte 0: length of the MIDI message
+/// - Byte 1..N: raw MIDI message
+///
+/// This is subject to change, it is still on active development
 #[derive(Debug)]
 pub struct MidiFrame {
     len: usize,
@@ -22,9 +29,11 @@ impl From<&[u8]> for MidiFrame {
 }
 
 impl MidiFrame {
+    #[doc(hidden)]
     pub fn get_payload(src: &[u8; 33]) -> &[u8] {
         &src[1..(src[0] as usize + 1)]
     }
+    #[doc(hidden)]
     pub fn serialize(&self) -> [u8; 33] {
         let mut whole: [u8; 33] = [0; 33];
         let (one, two) = whole.split_at_mut(1);

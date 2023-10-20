@@ -1,23 +1,22 @@
-use log::{debug, error, trace};
+use log::{debug, trace};
 use midir::MidiOutputConnection;
 use passeri_api::midi::MidiFrame;
-use passeri_api::net::receiver::{self, Request, Responder, Response};
-use receiver::ThreadReturn;
+use passeri_api::net::receiver::{Request, Responder, Response, Thread, ThreadReturn};
 use std::net::{SocketAddr, TcpStream};
 use std::sync::mpsc;
 
 type PasseriReq = (Request, Responder);
 
-use passeri_api::net::ReceiverThread;
 use std::io::Read;
 
+/// Implementation of the [Receiver Thread Trait](Thread) over TCP network
 pub struct Receiver {
     midi_tx: MidiOutputConnection,
     distant: TcpStream,
     messenger_rx: mpsc::Receiver<PasseriReq>,
 }
 
-impl ReceiverThread for Receiver {
+impl Thread for Receiver {
     type Addr = SocketAddr;
 
     fn new(

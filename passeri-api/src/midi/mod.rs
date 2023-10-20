@@ -28,6 +28,7 @@ pub fn get_availables_midi_port() -> Result<Vec<(usize, String)>, String> {
     }
 }
 
+/// Tuple decribing incomming MIDI message: first part is timestamp, second one is [MidiFrame]
 pub type MidiPayload = (u64, MidiFrame);
 
 /// Create a new [MidiOutputConnection] instance, which can be called to send MIDI message to the provided MIDI port
@@ -50,7 +51,7 @@ pub fn new_sender(midi_port_index: usize) -> Result<MidiOutputConnection, String
     Err("couldnt find the port".into())
 }
 
-/// Create a new [MidiInputConnection] instance, which will forward any received MIDI message to the returned [Receiver](Receiver) end tunnel
+/// Create a new [MidiInputConnection] instance, which will forward any received MIDI message to the returned [Receiver] end tunnel
 ///
 /// # Arguments
 /// * `midi_port_index` - Index of a MIDI output port (you can get it from a [get_availables_midi_port] function call)

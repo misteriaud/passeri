@@ -1,5 +1,4 @@
-use passeri_api::net::{self, sender};
-use sender::{PasseriReq, Request, Responder, Response, ThreadReturn};
+use passeri_api::net::sender::{PasseriReq, Request, Responder, Response, Thread, ThreadReturn};
 use std::collections::HashMap;
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::mpsc::{self};
@@ -9,8 +8,9 @@ use passeri_api::midi::MidiPayload;
 use std::io::Write;
 
 /// `passeri_api::net::Sender` trait implementation over TCP
-type Addr = <Sender as net::SenderThread>::Addr;
+type Addr = <Sender as Thread>::Addr;
 
+/// Implementation of the [Sender Thread Trait](Thread) over TCP network
 pub struct Sender {
     local: TcpListener,
     distant: HashMap<Addr, TcpStream>,
@@ -18,13 +18,13 @@ pub struct Sender {
     messenger_rx: mpsc::Receiver<PasseriReq<Addr>>,
 }
 
-impl net::SenderThread for Sender {
+impl Thread for Sender {
     type Addr = SocketAddr;
 
     fn new(
         addr: Self::Addr,
         midi_rx: mpsc::Receiver<MidiPayload>,
-        messenger_rx: mpsc::Receiver<net::sender::PasseriReq<Self::Addr>>,
+        messenger_rx: mpsc::Receiver<PasseriReq<Self::Addr>>,
     ) -> Result<Self, String> {
         let local = match TcpListener::bind(addr) {
             Ok(result) => result,
@@ -71,7 +71,7 @@ impl net::SenderThread for Sender {
             }
             Err(ThreadReturn::SendEnd)
         } else {
-            Ok(responder.send(sender::Response::ClientNotFound)?)
+            Ok(responder.send(Response::ClientNotFound)?)
         }
     }
 
@@ -89,7 +89,7 @@ impl Sender {
         let (distant, addr) = self.local.accept()?;
         self.distant.insert(addr, distant);
         responder
-            .send(sender::Response::NewClient(addr))
+            .send(Response::NewClient(addr))
             .map_err(|err| ThreadReturn::Send(err))
     }
 }

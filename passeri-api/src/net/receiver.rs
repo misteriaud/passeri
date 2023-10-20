@@ -1,30 +1,36 @@
-use std::{
-    fmt::{Debug, Display},
-    sync::mpsc,
-    thread::JoinHandle,
-};
+use std::{fmt::Debug, sync::mpsc, thread::JoinHandle};
 
 pub use crate::net::Result;
 use log::info;
 use midir::MidiOutputConnection;
 
+/// Set of requests send by the [Receiver instance](Receiver) to the [net_thread](Thread).
+/// It have to be able to process all these requests to be compliant with this [Receiver instance](Receiver).
 pub enum Request {
+    /// start receiving from the distant sender
     Receive, // send invitation to specified address:port
 }
 #[derive(Debug)]
+
+/// Set of responses that can return the [net_thread](Thread) to the [Receiver instance](Receiver) after receiving [Request].
 pub enum Response {
+    /// notify that [net_thread](Thread) start to receive from distant sender
     StartReceiving,
     Err(String),
 }
+
+/// Oneshot tunnel letting the [net_thread](Thread) return [Response] to the [Receiver instance](Receiver)
 pub type Responder = oneshot::Sender<Response>;
 
-type PasseriReq = (Request, Responder);
+/// Packet send to the [net_thread](Thread) containing the [Request] and the [Responder]
+pub type PasseriReq = (Request, Responder);
 
 use thiserror::Error;
 
-/// Possible thread return values of the TCP Sender and Receiver
+/// Possible [thread join()](std::thread::JoinHandle::join) return values of the [net_thread](Thread) implementation
 #[derive(Error, Debug)]
 pub enum ThreadReturn {
+    /// unable to init Receiver
     #[error("unable to init Receiver")]
     InitError,
     /// unable to get request from tunnel
@@ -68,9 +74,20 @@ pub enum ThreadReturn {
 //	ReceiverThread trait
 //
 
-pub trait ReceiverThread {
+/// Minimum set of function that have to implement a [net_thread](Thread)
+///
+/// It is recommended to implement it as a background thread waiting for any incomming data from the distant Sender,
+/// then forwarding it to the MIDI out port by a `send()` call to the provided `MidiOutputConnection` instance.
+pub trait Thread {
+    /// Type used by the chosen Network Layer to describe addresses (e.g.: `SocketAddr` for TCP)
     type Addr: 'static + Send;
 
+    /// create a new Receiver instance
+    ///
+    /// # Arguments
+    /// * `addr` - the distant Sender address to which the newly created **ReceiverThread** have to listen for
+    /// * `midi_tx` - the [MidiOutputConnection] instance used to forward the receiving call to the local MIDI out port
+    /// * `messenger_rx` - [Receiver](mpsc::Receiver) from which the **ReceiverThread** will get [Request] from the main thread
     fn new(
         addr: Self::Addr,
         midi_tx: MidiOutputConnection,
@@ -78,8 +95,17 @@ pub trait ReceiverThread {
     ) -> std::result::Result<Self, String>
     where
         Self: Sized;
+
+    /// implementation have to block reading on the `messenger_rx` [Receiver](mpsc::Receiver), processing each incomming [Request]
     fn run(&mut self) -> std::result::Result<(), ThreadReturn>;
+
+    /// implementation have to start forwarding incomming [crate::midi::MidiFrame] from the distant sender to the local midi_thread using `midi_tx` [MidiOutputConnection].
+    /// It have to notify the main thread that the receiving stream is starting by a [Response::StartReceiving] [Response] and then looping over this way:
+    /// 	- blocking on reading the incomming [crate::midi::MidiFrame] from the distant sender
+    /// 	- forwarding received message to the local midi_thread using `midi_tx` [MidiOutputConnection]
     fn receive(&mut self, responder: Responder) -> std::result::Result<(), ThreadReturn>;
+
+    /// String describing the distant Sender address
     fn info(&self) -> String;
 }
 
@@ -90,11 +116,10 @@ pub trait ReceiverThread {
 pub struct Receiver {
     net_thread: JoinHandle<ThreadReturn>,
     tx: mpsc::Sender<PasseriReq>,
-    // socket_addr: Option<SocketAddr>,
 }
 
 impl Receiver {
-    pub fn new<T: ReceiverThread>(midi_tx: MidiOutputConnection, addr: T::Addr) -> Result<Self> {
+    pub fn new<T: Thread>(midi_tx: MidiOutputConnection, addr: T::Addr) -> Result<Self> {
         let (tx, rx) = mpsc::channel::<PasseriReq>();
         let (init_tx, init_rx) = oneshot::channel::<std::result::Result<(), String>>();
 
@@ -140,29 +165,3 @@ impl Receiver {
     //     }
     // }
 }
-
-// /// Minimum set of function that have to implement a Network Receiver
-// ///
-// /// It is recommended to implement it as a background thread waiting for any incomming data from the distant Sender,
-// /// then forwarding it to the MIDI out port by a `send()` call to the provided `MidiOutputConnection` instance.
-// pub trait Receiver {
-//     /// Type used by the chosen Network Layer to describe addresses (e.g.: `SocketAddr` for TCP)
-//     type Addr;
-//     /// Define the returning value of the background thread
-//     type ThreadReturn;
-
-//     /// create a new Receiver instance
-//     ///
-//     /// # Arguments
-//     /// * `midi_out` - the MidiOut instance used to forward the receiving call to the local MIDI out port
-//     /// * `sender` - the distant Sender address to which the newly created Receiver have to listen for
-//     fn new(midi_out: MidiOutputConnection, sender: Self::Addr) -> Result<Self>
-//     where
-//         Self: Sized;
-
-//     /// start to forward the distant Sender messages to the local MIDI out port
-//     fn receive(self) -> Result<Self::ThreadReturn>;
-
-//     /// String describing the distant Sender address
-//     fn info(&self) -> String;
-// }

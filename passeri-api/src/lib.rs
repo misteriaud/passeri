@@ -7,6 +7,3 @@ pub use helper::*;
 pub mod midi;
 /// defines the necessary behaviour to implement midi over network messenger
 pub mod net;
-
-// /// implements `net::Sender` and `net::Receiver` over TCP
-// pub mod tcp;

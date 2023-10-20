@@ -1,11 +1,9 @@
 use std::error::Error;
 #[doc(hidden)]
 pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
-#[doc(hidden)]
+/// Define a set of enums and thread trait to work with [Receiver] bridge
 pub mod receiver;
-#[doc(inline)]
-pub use receiver::{Receiver, ReceiverThread};
-#[doc(hidden)]
+pub use receiver::Receiver;
+/// Define a set of enums and thread trait to work with [Sender] bridge
 pub mod sender;
-#[doc(inline)]
-pub use sender::{Sender, SenderThread};
+pub use sender::Sender;
