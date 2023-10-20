@@ -26,9 +26,10 @@ pub fn new_sender<NetThread: net::sender::Thread>(
 /// * `sender_addr` - Address used by the given [net_thread][net::receiver::Thread]  implementation to connect to
 pub fn new_receiver<NetThread: net::receiver::Thread>(
     midi_port_index: usize,
+    midi_port_name: String,
     sender_addr: NetThread::Addr,
 ) -> Result<net::Receiver> {
-    let conn = midi::new_sender(midi_port_index)?;
+    let conn = midi::new_sender(midi_port_index, midi_port_name)?;
     let net = net::Receiver::new::<NetThread>(conn, sender_addr)?;
 
     Ok(net)

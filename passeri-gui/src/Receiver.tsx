@@ -1,12 +1,11 @@
 import { invoke } from "@tauri-apps/api";
-import { Sender } from "./App";
-
+import { Receiver } from "./App";
 import { stringify } from "uuid";
 
-export default function SenderComp({ sender }: { sender: Sender }) {
+export default function ReceiverComp({ receiver }: { receiver: Receiver }) {
   async function remove() {
-    await invoke("remove_sender", {
-      uuid: stringify(sender.id),
+    await invoke("remove_receiver", {
+      uuid: stringify(receiver.id),
     })
       .then((resp) => {
         console.log(resp);
@@ -16,9 +15,9 @@ export default function SenderComp({ sender }: { sender: Sender }) {
       });
   }
 
-  async function listen() {
-    await invoke("sender_listen", {
-      uuid: stringify(sender.id),
+  async function receive() {
+    await invoke("receiver_receive", {
+      uuid: stringify(receiver.id),
     })
       .then((resp) => {
         console.log(resp);
@@ -30,9 +29,9 @@ export default function SenderComp({ sender }: { sender: Sender }) {
 
   return (
     <div>
-      <h1>{sender.addr}</h1>
+      <h1>{receiver.addr}</h1>
       <button onClick={() => remove()}>X</button>
-      <button onClick={() => listen()}>listen</button>
+      <button onClick={() => receive()}>receive</button>
     </div>
   );
 }

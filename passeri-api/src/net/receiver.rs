@@ -116,18 +116,19 @@ pub trait Thread {
 pub struct Receiver {
     net_thread: JoinHandle<ThreadReturn>,
     tx: mpsc::Sender<PasseriReq>,
+    addr: String,
 }
 
 impl Receiver {
     /// Create a new [Receiver instance](Receiver) (it is recommended to use the [new_receiver()][crate::new_receiver] function)
     pub fn new<T: Thread>(midi_tx: MidiOutputConnection, addr: T::Addr) -> Result<Self> {
         let (tx, rx) = mpsc::channel::<PasseriReq>();
-        let (init_tx, init_rx) = oneshot::channel::<std::result::Result<(), String>>();
+        let (init_tx, init_rx) = oneshot::channel::<std::result::Result<String, String>>();
 
         let net_thread = std::thread::spawn(|| {
             let mut socket = match T::new(addr, midi_tx, rx) {
                 Ok(res) => {
-                    init_tx.send(Ok(())).unwrap();
+                    init_tx.send(Ok(res.info())).unwrap();
                     res
                 }
                 Err(err) => {
@@ -141,28 +142,30 @@ impl Receiver {
             socket.run().unwrap_err()
         });
 
-        init_rx.recv()??;
+        let addr = init_rx.recv()??;
 
-        Ok(Receiver { net_thread, tx })
+        Ok(Receiver {
+            net_thread,
+            tx,
+            addr,
+        })
     }
 
     /// Start forwarding network stream from [net_thread](Thread) to output MIDI port
-    pub fn receive(self) -> Result<ThreadReturn> {
+    pub fn receive(&self) -> Result<()> {
         let (response_sender, response_receiver) = oneshot::channel();
         self.tx.send((Request::Receive, response_sender))?;
 
         match response_receiver.recv()? {
             Response::StartReceiving => {
                 info!("received ListenStream");
-                Ok(self.net_thread.join().unwrap_or(ThreadReturn::JoinError))
+                // Ok(self.net_thread.join().unwrap_or(ThreadReturn::JoinError))
+                Ok(())
             }
         }
     }
 
-    // fn info(&self) -> String {
-    //     match self.socket_addr {
-    //         Some(addr) => format!("addr1: {}", addr),
-    //         None => String::new(),
-    //     }
-    // }
+    pub fn info(&self) -> String {
+        self.addr.clone()
+    }
 }

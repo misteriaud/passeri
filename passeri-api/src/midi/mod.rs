@@ -37,12 +37,15 @@ pub type MidiPayload = (u64, MidiFrame);
 ///
 /// # Arguments
 /// * `midi_port_index` - Index of a MIDI output port (you can get it from a [get_availables_midi_port] function call)
-pub fn new_sender(midi_port_index: usize) -> Result<MidiOutputConnection, String> {
-    let midi_out = MidiOutput::new(EMITTER_PORT_NAME).expect("unable to create the lookup port");
-    info!("MIDI-OUT port is set up to: {}", EMITTER_PORT_NAME);
+pub fn new_sender(
+    midi_port_index: usize,
+    midi_port_name: String,
+) -> Result<MidiOutputConnection, String> {
+    let midi_out = MidiOutput::new(&midi_port_name).expect("unable to create the lookup port");
+    info!("MIDI-OUT port is set up to: {}", midi_port_name);
 
     if let Some(port) = midi_out.ports().get(midi_port_index) {
-        info!("midi_thread is running for {}", EMITTER_PORT_NAME);
+        info!("midi_thread is running for {}", midi_port_name);
         if let Ok(conn) = midi_out.connect(port, "midir-read-input") {
             return Ok(conn);
         }

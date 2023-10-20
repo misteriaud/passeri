@@ -71,9 +71,6 @@ impl Thread for Receiver {
     }
 
     fn info(&self) -> String {
-        format!(
-            "Tcp Receiver is connected to {}",
-            self.distant.local_addr().unwrap()
-        )
+        format!("{}", self.distant.local_addr().unwrap())
     }
 }

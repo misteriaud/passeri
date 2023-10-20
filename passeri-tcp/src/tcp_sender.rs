@@ -76,10 +76,7 @@ impl Thread for Sender {
     }
 
     fn info(&self) -> String {
-        format!(
-            "Tcp Sender is listening on {}",
-            self.local.local_addr().unwrap()
-        )
+        format!("{}", self.local.local_addr().unwrap())
     }
 }
 
