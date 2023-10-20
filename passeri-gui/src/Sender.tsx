@@ -2,25 +2,22 @@ import { invoke } from "@tauri-apps/api";
 import { Sender } from "./App";
 
 import { stringify } from "uuid";
+import { useState } from "react";
+
+enum SenderState {
+  Idle = "idle",
+  Listening = "listening",
+}
 
 export default function SenderComp({ sender }: { sender: Sender }) {
-  async function remove() {
-    await invoke("remove_sender", {
-      uuid: stringify(sender.id),
-    })
-      .then((resp) => {
-        console.log(resp);
-      })
-      .catch((err) => {
-        console.log(err);
-      });
-  }
+  const [state, setState] = useState(SenderState.Idle);
 
   async function listen() {
     await invoke("sender_listen", {
       uuid: stringify(sender.id),
     })
       .then((resp) => {
+        setState(SenderState.Listening);
         console.log(resp);
       })
       .catch((err) => {
@@ -31,8 +28,8 @@ export default function SenderComp({ sender }: { sender: Sender }) {
   return (
     <div>
       <h1>{sender.addr}</h1>
-      <button onClick={() => remove()}>X</button>
       <button onClick={() => listen()}>listen</button>
+      {state}
     </div>
   );
 }
