@@ -10,16 +10,16 @@ fn main() {
         .filter_level(log::LevelFilter::Debug)
         .init();
 
-    let args: Vec<String> = env::args().collect();
-    if args.len() < 2 {
-        error!("Usage:\n\treceiver <address>");
+    let mut args: Vec<String> = env::args().collect();
+    if args.len() < 3 {
+        error!("Usage:\n\treceiver <address> <midi_out_port_name>");
         exit(1);
     }
 
     let addr = SocketAddr::from_str(&args[1]).expect("error while parsing address argument");
 
-    let receiver =
-        passeri_api::new_receiver::<passeri_tcp::Receiver>(1, addr).unwrap_or_else(|err| {
+    let mut receiver = passeri_api::new_receiver::<passeri_tcp::Receiver>(1, args.remove(2), addr)
+        .unwrap_or_else(|err| {
             error!(
                 "Err: unable to initialize Receiver on address \"{}\" ({})",
                 &args[1], err
@@ -27,8 +27,12 @@ fn main() {
             exit(1);
         });
 
-    match receiver.receive() {
-        Ok(thread_resp) => info!("the net thread ended: {:?}", thread_resp),
-        Err(err) => error!("error trying to receive from Sender: {}", err),
+    receiver.receive().unwrap_or_else(|err| {
+        error!("error trying to receive from Sender: {}", err);
+        exit(1);
+    });
+
+    if let Ok(result) = receiver.join() {
+        info!("Net thread return {:?}", result);
     }
 }

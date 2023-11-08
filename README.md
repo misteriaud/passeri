@@ -36,13 +36,13 @@ A very simple set of Sender and Receiver using TCP Network can be run as followi
 ### Sender
 First let's run the Sender:
 ```sh
-cargo run --example sender 127.0.0.1:8080
+cargo run --example sender 127.0.0.1:8080 passeri_listener
 ```
 
 ### Receiver
 you can then connect to it using the following command
 ```sh
-cargo run --example receiver -- 127.0.0.1:8080
+cargo run --example receiver -- 127.0.0.1:8080 passeri_receiver
 ```
 
 ## License

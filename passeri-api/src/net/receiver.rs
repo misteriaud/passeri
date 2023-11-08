@@ -1,7 +1,7 @@
 use std::{fmt::Debug, sync::mpsc, thread::JoinHandle};
 
 pub use crate::net::Result;
-use log::info;
+use log::{info, trace};
 use midir::MidiOutputConnection;
 
 /// Set of requests send by the [Receiver instance](Receiver) to the [net_thread](Thread).
@@ -114,7 +114,7 @@ pub trait Thread {
 
 /// [Receiver instance](Receiver) used to bridge an incomming network stream (implemented by [net_thread](Thread)) to an output MIDI port
 pub struct Receiver {
-    net_thread: JoinHandle<ThreadReturn>,
+    net_thread: Option<JoinHandle<ThreadReturn>>,
     tx: mpsc::Sender<PasseriReq>,
     addr: String,
 }
@@ -125,7 +125,7 @@ impl Receiver {
         let (tx, rx) = mpsc::channel::<PasseriReq>();
         let (init_tx, init_rx) = oneshot::channel::<std::result::Result<String, String>>();
 
-        let net_thread = std::thread::spawn(|| {
+        let net_thread = Some(std::thread::spawn(|| {
             let mut socket = match T::new(addr, midi_tx, rx) {
                 Ok(res) => {
                     init_tx.send(Ok(res.info())).unwrap();
@@ -137,10 +137,10 @@ impl Receiver {
                 }
             };
 
-            info!("{}", socket.info());
+            info!("receiver created on {}", socket.info());
 
             socket.run().unwrap_err()
-        });
+        }));
 
         let addr = init_rx.recv()??;
 
@@ -158,11 +158,19 @@ impl Receiver {
 
         match response_receiver.recv()? {
             Response::StartReceiving => {
-                info!("received ListenStream");
-                // Ok(self.net_thread.join().unwrap_or(ThreadReturn::JoinError))
+                trace!("received ListenStream");
                 Ok(())
             }
         }
+    }
+
+    pub fn join(&mut self) -> Result<ThreadReturn> {
+        Ok(self
+            .net_thread
+            .take()
+            .unwrap()
+            .join()
+            .unwrap_or(ThreadReturn::JoinError))
     }
 
     pub fn info(&self) -> String {

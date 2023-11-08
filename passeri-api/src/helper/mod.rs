@@ -7,6 +7,7 @@ use crate::{
 ///
 /// # Arguments
 /// * `midi_port_index` - Index of a MIDI input port (you can get it from a [midi::get_availables_midi_port] function call)
+/// * `midi_port_name` - Name used to create the [MidiInputConnection][midir::MidiInputConnection]
 /// * `binding_addr` - Address used by the given [net_thread][net::sender::Thread] implementation to listen on
 pub fn new_sender<NetThread: net::sender::Thread>(
     midi_port_index: usize,
@@ -23,7 +24,8 @@ pub fn new_sender<NetThread: net::sender::Thread>(
 ///
 /// # Arguments
 /// * `midi_port_index` - Index of a MIDI output port (you can get it from a [midi::get_availables_midi_port] function call)
-/// * `sender_addr` - Address used by the given [net_thread][net::receiver::Thread]  implementation to connect to
+/// * `midi_port_name` - Name used to create the [MidiOutputConnection][midir::MidiOutputConnection]
+/// * `sender_addr` - Address used by the given [net_thread][net::receiver::Thread] implementation to connect to
 pub fn new_receiver<NetThread: net::receiver::Thread>(
     midi_port_index: usize,
     midi_port_name: String,

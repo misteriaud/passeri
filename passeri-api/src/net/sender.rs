@@ -144,8 +144,6 @@ impl<T: Thread> Sender<T> {
         let (tx, rx) = mpsc::channel::<PasseriReq<T::Addr>>();
         let (init_tx, init_rx) = oneshot::channel::<std::result::Result<String, String>>();
 
-        // let socket_addr = socket.get_addr();
-
         let net_thread = Some(std::thread::spawn(move || {
             let mut socket = match T::new(addr, midi_rx, rx) {
                 Ok(res) => {
@@ -158,7 +156,7 @@ impl<T: Thread> Sender<T> {
                 }
             };
 
-            info!("{}", socket.info());
+            info!("sender created on {}", socket.info());
 
             socket.run().unwrap_err()
         }));
