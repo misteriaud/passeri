@@ -42,7 +42,7 @@ fn new_bridge(
     match bridge_type {
         0 => {
             // Sender
-            let sender = passeri_api::new_sender(0, midi_port_name, addr)
+            let sender = passeri_api::new_sender(0, &midi_port_name, addr)
                 .map_err(|err| format!("{}", err))?;
 
             let addr = sender.info();
@@ -57,7 +57,7 @@ fn new_bridge(
         _ => {
             // Receiver
             let receiver =
-                passeri_api::new_receiver::<passeri_tcp::Receiver>(0, midi_port_name, addr)
+                passeri_api::new_receiver::<passeri_tcp::Receiver>(0, &midi_port_name, addr)
                     .map_err(|err| format!("{}", err))?;
 
             let addr = receiver.info();

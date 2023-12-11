@@ -9,12 +9,12 @@ use midir::{Ignore, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnec
 mod midi_frame;
 pub use midi_frame::MidiFrame;
 
-const LOOKUP_PORT_NAME: &str = "passeri lookup";
-const LISTEN_PORT_NAME: &str = "PASSERI_LISTENER";
-const EMITTER_PORT_NAME: &str = "PASSERI_EMITTER";
+const LOOKUP_PORT_NAME: &str = "PASSERI_LOOKUP";
+// const LISTEN_PORT_NAME: &str = "PASSERI_LISTENER";
+// const EMITTER_PORT_NAME: &str = "PASSERI_EMITTER";
 
 /// Returns a vector of all MIDI input ports that [midir] can connect to
-pub fn get_availables_midi_port() -> Result<Vec<(usize, String)>, String> {
+pub fn get_availables_midi_in_port() -> Result<Vec<(usize, String)>, String> {
     match MidiInput::new(LOOKUP_PORT_NAME) {
         Ok(lookup_port) => {
             let in_ports = lookup_port.ports();
@@ -24,7 +24,22 @@ pub fn get_availables_midi_port() -> Result<Vec<(usize, String)>, String> {
                 .enumerate()
                 .collect::<Vec<(usize, String)>>())
         }
-        Err(_) => Err("unable to lookup available ports".into()),
+        Err(_) => Err("unable to lookup available in ports".into()),
+    }
+}
+
+/// Returns a vector of all MIDI input ports that [midir] can connect to
+pub fn get_availables_midi_out_port() -> Result<Vec<(usize, String)>, String> {
+    match MidiOutput::new(LOOKUP_PORT_NAME) {
+        Ok(lookup_port) => {
+            let out_ports = lookup_port.ports();
+            Ok(out_ports
+                .into_iter()
+                .map(|port| lookup_port.port_name(&port).unwrap())
+                .enumerate()
+                .collect::<Vec<(usize, String)>>())
+        }
+        Err(_) => Err("unable to lookup available out ports".into()),
     }
 }
 
@@ -39,9 +54,9 @@ pub type MidiPayload = (u64, MidiFrame);
 /// * `midi_port_index` - Index of a MIDI output port (you can get it from a [get_availables_midi_port] function call)
 pub fn new_sender(
     midi_port_index: usize,
-    midi_port_name: String,
+    midi_port_name: &str,
 ) -> Result<MidiOutputConnection, String> {
-    let midi_out = MidiOutput::new(&midi_port_name).expect("unable to create the lookup port");
+    let midi_out = MidiOutput::new(midi_port_name).expect("unable to create the lookup port");
     info!("MIDI-OUT port is set up to: {}", midi_port_name);
 
     if let Some(port) = midi_out.ports().get(midi_port_index) {
@@ -60,9 +75,9 @@ pub fn new_sender(
 /// * `midi_port_index` - Index of a MIDI output port (you can get it from a [get_availables_midi_port] function call)
 pub fn new_receiver(
     midi_port_index: usize,
-    midi_port_name: String,
+    midi_port_name: &str,
 ) -> Result<(MidiInputConnection<()>, Receiver<MidiPayload>), String> {
-    let mut midi_in = MidiInput::new(&midi_port_name).expect("unable to create the lookup port");
+    let mut midi_in = MidiInput::new(midi_port_name).expect("unable to create the lookup port");
     midi_in.ignore(Ignore::None);
     info!("MIDI-IN port is set up to: {}", midi_port_name);
 

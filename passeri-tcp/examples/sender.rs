@@ -15,7 +15,7 @@ fn main() {
 
     let addr = SocketAddr::from_str(&args[1]).expect("error while parsing address argument");
 
-    let mut sender = passeri_api::new_sender::<passeri_tcp::Sender>(0, args.remove(2), addr)
+    let mut sender = passeri_api::new_sender::<passeri_tcp::Sender>(0, &args.remove(2), addr)
         .unwrap_or_else(|err| {
             error!(
                 "Err: unable to initialize Sender on address \"{}\" ({})",

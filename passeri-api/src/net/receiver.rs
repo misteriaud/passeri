@@ -10,9 +10,9 @@ pub enum Request {
     /// start receiving from the distant sender
     Receive, // send invitation to specified address:port
 }
-#[derive(Debug)]
 
 /// Set of responses that can return the [net_thread](Thread) to the [Receiver instance](Receiver) after receiving [Request].
+#[derive(Debug)]
 pub enum Response {
     /// notify that [net_thread](Thread) start to receive from distant sender
     StartReceiving,

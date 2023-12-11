@@ -11,7 +11,7 @@ use crate::{
 /// * `binding_addr` - Address used by the given [net_thread][net::sender::Thread] implementation to listen on
 pub fn new_sender<NetThread: net::sender::Thread>(
     midi_port_index: usize,
-    midi_port_name: String,
+    midi_port_name: &str,
     binding_addr: NetThread::Addr,
 ) -> Result<net::Sender<NetThread>> {
     let (conn, rx) = midi::new_receiver(midi_port_index, midi_port_name)?;
@@ -28,7 +28,7 @@ pub fn new_sender<NetThread: net::sender::Thread>(
 /// * `sender_addr` - Address used by the given [net_thread][net::receiver::Thread] implementation to connect to
 pub fn new_receiver<NetThread: net::receiver::Thread>(
     midi_port_index: usize,
-    midi_port_name: String,
+    midi_port_name: &str,
     sender_addr: NetThread::Addr,
 ) -> Result<net::Receiver> {
     let conn = midi::new_sender(midi_port_index, midi_port_name)?;
