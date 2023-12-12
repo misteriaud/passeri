@@ -92,8 +92,8 @@ impl Thread for Sender {
         }
     }
 
-    fn info(&self) -> String {
-        format!("{}", self.local.local_addr().unwrap())
+    fn info(&self) -> Self::Addr {
+        self.local.local_addr().unwrap()
     }
 }
 

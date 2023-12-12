@@ -93,7 +93,7 @@ pub type PasseriReq<Addr> = (Request<Addr>, Responder<Addr>);
 /// then sending it over network to the connected receiver client.
 pub trait Thread {
     /// Type used by the chosen Network Layer to describe addresses (e.g.: `SocketAddr` for TCP)
-    type Addr: 'static + Send + Debug;
+    type Addr: 'static + Send + Debug + std::fmt::Display + Clone;
 
     /// create a new Sender instance
     ///
@@ -124,7 +124,7 @@ pub trait Thread {
     ) -> std::result::Result<(), ThreadReturn<Self::Addr>>;
 
     /// return a informationnal string on the address on which is bound the sender thread
-    fn info(&self) -> String;
+    fn info(&self) -> Self::Addr;
 }
 
 //
@@ -136,7 +136,7 @@ pub struct Sender<T: Thread> {
     _midi_thread: MidiInputConnection<()>,
     net_thread: Option<JoinHandle<ThreadReturn<T::Addr>>>,
     tx: mpsc::Sender<PasseriReq<T::Addr>>,
-    info: String,
+    addr: T::Addr,
 }
 impl<T: Thread> Sender<T> {
     /// Create a new [Sender instance](Sender) (it is recommended to use the [new_sender()][crate::new_sender] function)
@@ -146,7 +146,7 @@ impl<T: Thread> Sender<T> {
         addr: T::Addr,
     ) -> Result<Self> {
         let (tx, rx) = mpsc::channel::<PasseriReq<T::Addr>>();
-        let (init_tx, init_rx) = oneshot::channel::<std::result::Result<String, String>>();
+        let (init_tx, init_rx) = oneshot::channel::<std::result::Result<T::Addr, String>>();
 
         let net_thread = Some(std::thread::spawn(move || {
             let mut socket = match T::new(addr, midi_rx, rx) {
@@ -165,13 +165,13 @@ impl<T: Thread> Sender<T> {
             socket.run().unwrap_err()
         }));
 
-        let info = init_rx.recv()??;
+        let addr = init_rx.recv()??;
 
         Ok(Sender {
             _midi_thread,
             net_thread,
             tx,
-            info,
+            addr,
         })
     }
 
@@ -210,7 +210,7 @@ impl<T: Thread> Sender<T> {
             .unwrap_or(ThreadReturn::JoinError))
     }
 
-    pub fn info(&self) -> String {
-        self.info.clone()
+    pub fn info(&self) -> T::Addr {
+        self.addr.clone()
     }
 }

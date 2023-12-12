@@ -52,7 +52,7 @@ impl Thread for Receiver {
     }
     /// Starting to listen over UDP socket for
     fn receive(&mut self, responder: Responder) -> Result<(), ThreadReturn> {
-        let mut buf: [u8; 33] = [0; 33];
+        let mut buf: [u8; 113] = [0; 113];
         responder.send(Response::StartReceiving)?;
         loop {
             let len = self

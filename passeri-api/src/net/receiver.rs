@@ -173,6 +173,10 @@ impl Receiver {
             .unwrap_or(ThreadReturn::JoinError))
     }
 
+    pub fn is_finished(&mut self) -> bool {
+        self.net_thread.as_ref().unwrap().is_finished()
+    }
+
     pub fn info(&self) -> String {
         self.addr.clone()
     }

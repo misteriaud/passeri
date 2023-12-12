@@ -90,7 +90,7 @@ pub fn new_receiver(
                 port,
                 "midir-read-input",
                 move |stamp: u64, msg: &[u8], _| {
-                    trace!("msg: {}", stamp);
+                    trace!("msg: {:?}", msg);
                     if let Err(_) = tx.send((stamp, msg.into())) {
                         exit(1);
                     }
