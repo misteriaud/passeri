@@ -1,0 +1,176 @@
+{
+	// Use IntelliSense to learn about possible attributes.
+	// Hover to view descriptions of existing attributes.
+	// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug unit tests in library 'passeri-api'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--lib",
+					"--package=passeri-api"
+				],
+				"filter": {
+					"name": "passeri-api",
+					"kind": "lib"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug unit tests in library 'passeri-tcp'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--lib",
+					"--package=passeri-tcp"
+				],
+				"filter": {
+					"name": "passeri-tcp",
+					"kind": "lib"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug example 'receiver'",
+			"cargo": {
+				"args": [
+					"build",
+					"--example=receiver",
+					"--package=passeri-tcp"
+				],
+				"filter": {
+					"name": "receiver",
+					"kind": "example"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug unit tests in example 'receiver'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--example=receiver",
+					"--package=passeri-tcp"
+				],
+				"filter": {
+					"name": "receiver",
+					"kind": "example"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug example 'sender'",
+			"cargo": {
+				"args": [
+					"build",
+					"--example=sender",
+					"--package=passeri-tcp"
+				],
+				"filter": {
+					"name": "sender",
+					"kind": "example"
+				}
+			},
+			"args": ["127.0.0.1:8080", "passeri_listener"],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug unit tests in example 'sender'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--example=sender",
+					"--package=passeri-tcp"
+				],
+				"filter": {
+					"name": "sender",
+					"kind": "example"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug unit tests in library 'passeri-bluetooth'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--lib",
+					"--package=passeri-bluetooth"
+				],
+				"filter": {
+					"name": "passeri-bluetooth",
+					"kind": "lib"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug executable 'passeri-gui'",
+			"cargo": {
+				"args": [
+					"build",
+					"--bin=passeri-gui",
+					"--package=passeri-gui"
+				],
+				"filter": {
+					"name": "passeri-gui",
+					"kind": "bin"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug unit tests in executable 'passeri-gui'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--bin=passeri-gui",
+					"--package=passeri-gui"
+				],
+				"filter": {
+					"name": "passeri-gui",
+					"kind": "bin"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		}
+	]
+}

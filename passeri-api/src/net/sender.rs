@@ -1,6 +1,6 @@
 use crate::midi::MidiPayload;
 pub use crate::net::Result;
-use log::{error, info, trace};
+use log::{debug, error, info, trace};
 use midir::MidiInputConnection;
 use std::{
     fmt::Debug,
@@ -74,6 +74,10 @@ pub enum ThreadReturn<Addr> {
     /// Distant Receiver disconnect
     #[error("Send End")]
     SendEnd,
+
+    /// The Receiver leave the passeri connection
+    #[error("The Receiver leave the passeri connection")]
+    RecvLeave,
 }
 
 //
@@ -178,7 +182,7 @@ impl<T: Thread> Sender<T> {
 
         match response_receiver.recv()? {
             Response::NewClient(addr) => Ok(addr),
-            _ => Err("invalid response from tcp_thread".into()),
+            _ => Err("invalid response from net_thread".into()),
         }
     }
 
@@ -190,10 +194,10 @@ impl<T: Thread> Sender<T> {
 
         match response_receiver.recv()? {
             Response::StartStream => {
-                trace!("received StartStream");
+                debug!("received StartStream");
                 Ok(())
             }
-            _ => Err("invalid response from tcp_thread".into()),
+            _ => Err("invalid response from net_thread".into()),
         }
     }
 

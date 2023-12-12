@@ -3,9 +3,13 @@ use std::collections::HashMap;
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::mpsc::{self};
 
-use log::trace;
+use log::{debug, trace};
 use passeri_api::midi::MidiPayload;
-use std::io::Write;
+use std::io::{self, Read, Write};
+use std::sync::mpsc::RecvTimeoutError;
+use std::time::Duration;
+
+const CONNECTION_CHECK_ITV: Duration = Duration::from_secs(10);
 
 /// `passeri_api::net::Sender` trait implementation over TCP
 type Addr = <Sender as Thread>::Addr;
@@ -63,11 +67,24 @@ impl Thread for Sender {
     ) -> Result<(), ThreadReturn<Self::Addr>> {
         if let Some(mut stream) = self.distant.remove(&distant) {
             responder.send(Response::StartStream).unwrap();
-            while let Some(msg) = self.midi_rx.iter().next() {
-                trace!("send {:?}", msg);
-                stream
-                    .write(&msg.1.serialize())
-                    .map_err(|err| ThreadReturn::Write(err))?;
+            let mut peek_buf = [0];
+
+            loop {
+                match self.midi_rx.recv_timeout(CONNECTION_CHECK_ITV) {
+                    Ok(msg) => {
+                        trace!("send {:?}", msg);
+                        stream
+                            .write(&msg.1.serialize())
+                            .map_err(|err| ThreadReturn::Write(err))?;
+                    }
+                    Err(RecvTimeoutError::Disconnected) => break,
+                    Err(RecvTimeoutError::Timeout) => {
+                        if stream.read(&mut peek_buf).is_ok_and(|x| x == 0) {
+                            debug!("received leaved");
+                            return Err(ThreadReturn::RecvLeave);
+                        }
+                    }
+                }
             }
             Err(ThreadReturn::SendEnd)
         } else {
@@ -84,6 +101,9 @@ impl Sender {
     /// Starting to listen over UDP socket for
     fn open_room(&mut self, responder: Responder<Addr>) -> Result<(), ThreadReturn<Addr>> {
         let (distant, addr) = self.local.accept()?;
+        distant
+            .set_nonblocking(true)
+            .expect("set_nonblocking call failed");
         self.distant.insert(addr, distant);
         responder
             .send(Response::NewClient(addr))
