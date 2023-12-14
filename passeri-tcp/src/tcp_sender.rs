@@ -74,7 +74,7 @@ impl Thread for Sender {
                     Ok(msg) => {
                         trace!("send {:?}", msg);
                         stream
-                            .write(&msg.1.serialize())
+                            .write(&msg.1)
                             .map_err(|err| ThreadReturn::Write(err))?;
                     }
                     Err(RecvTimeoutError::Disconnected) => break,

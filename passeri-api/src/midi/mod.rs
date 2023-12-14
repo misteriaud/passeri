@@ -44,7 +44,7 @@ pub fn get_availables_midi_out_port() -> Result<Vec<(usize, String)>, String> {
 }
 
 /// Tuple decribing incomming MIDI message: first part is timestamp, second one is [MidiFrame]
-pub type MidiPayload = (u64, MidiFrame);
+pub type MidiPayload = (u64, Vec<u8>);
 
 /// Create a new [MidiOutputConnection] instance, which can be called to send MIDI message to the provided MIDI port
 ///

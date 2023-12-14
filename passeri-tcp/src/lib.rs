@@ -31,7 +31,7 @@ mod tests {
             .init();
 
         //read sysex file
-        let mut f = File::open("Digitakt_OS1.51.syx").unwrap();
+        let mut f = File::open("Digitakt_OS1.50.syx").unwrap();
         let mut buffer = Vec::new();
         // read the whole file
         f.read_to_end(&mut buffer).unwrap();
@@ -92,7 +92,7 @@ mod tests {
             debug!("passeri_receiver start to receive from passeri_sender");
             loop {
                 match fake_midi_recv.recv_timeout(Duration::from_secs(1)) {
-                    Ok((_, msg)) => res.extend_from_slice(&msg.payload),
+                    Ok((_, mut msg)) => res.append(&mut msg),
                     Err(RecvTimeoutError::Timeout) => {
                         debug!("check if passeri_receiver still alive");
                         if receiver.is_finished() {

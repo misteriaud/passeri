@@ -52,7 +52,7 @@ impl Thread for Receiver {
     }
     /// Starting to listen over UDP socket for
     fn receive(&mut self, responder: Responder) -> Result<(), ThreadReturn> {
-        let mut buf: [u8; 113] = [0; 113];
+        let mut buf: [u8; 3] = [0; 3];
         responder.send(Response::StartReceiving)?;
         loop {
             let len = self
@@ -64,7 +64,7 @@ impl Thread for Receiver {
                 return Err(ThreadReturn::ReceiveEnd);
             }
             self.midi_tx
-                .send(MidiFrame::get_payload(&buf))
+                .send(&buf[..len])
                 .map_err(|err| ThreadReturn::MidiSendError(err))?;
             trace!("MIDI -> {} bytes", len);
         }
