@@ -1,6 +1,6 @@
 use log::{debug, trace};
 use midir::MidiOutputConnection;
-use passeri_api::midi::MidiFrame;
+use passeri_api::midi::MidiParser;
 use passeri_api::net::receiver::{Request, Responder, Response, Thread, ThreadReturn};
 use std::net::{SocketAddr, TcpStream};
 use std::sync::mpsc;
@@ -52,7 +52,8 @@ impl Thread for Receiver {
     }
     /// Starting to listen over UDP socket for
     fn receive(&mut self, responder: Responder) -> Result<(), ThreadReturn> {
-        let mut buf: [u8; 3] = [0; 3];
+        let mut buf: [u8; 1024] = [0; 1024];
+        let mut midi_parser = MidiParser::new();
         responder.send(Response::StartReceiving)?;
         loop {
             let len = self
@@ -63,10 +64,18 @@ impl Thread for Receiver {
             if len == 0 {
                 return Err(ThreadReturn::ReceiveEnd);
             }
-            self.midi_tx
-                .send(&buf[..len])
-                .map_err(|err| ThreadReturn::MidiSendError(err))?;
-            trace!("MIDI -> {} bytes", len);
+            for msgs in midi_parser.parse(&buf[..len]) {
+                self.midi_tx
+                    .send(&msgs)
+                    .map_err(|err| ThreadReturn::MidiSendError(err))?;
+                trace!("MIDI -> {} bytes", len);
+            }
+            if let Some(msg) = midi_parser.flush() {
+                self.midi_tx
+                    .send(&msg)
+                    .map_err(|err| ThreadReturn::MidiSendError(err))?;
+                trace!("MIDI -> {} bytes", len);
+            }
         }
     }
 

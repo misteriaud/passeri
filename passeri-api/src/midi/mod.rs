@@ -7,7 +7,7 @@ use log::{info, trace};
 use midir::{Ignore, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection};
 
 mod midi_frame;
-pub use midi_frame::MidiFrame;
+pub use midi_frame::MidiParser;
 
 const LOOKUP_PORT_NAME: &str = "PASSERI_LOOKUP";
 // const LISTEN_PORT_NAME: &str = "PASSERI_LISTENER";

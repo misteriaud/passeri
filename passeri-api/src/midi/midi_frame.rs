@@ -1,75 +1,41 @@
 //
-//	MIDI FRAME OVER NETWORK
+//	MIDI PARSER
 //
 
-const FRAME_SIZE: usize = 112;
-
-/// Struct used to serialize and deserialize MIDI messages through network
-///
-/// the frame is composed of Nth bytes:
-/// - Byte 0: length of the MIDI message
-/// - Byte 1..N: raw MIDI message
-///
-/// This is subject to change, it is still on active development
+/// Struct used to parse Midi Message from incomming network messages
+/// It keep track of the current unfinished message
 #[derive(Debug, PartialEq, Eq)]
-pub struct MidiFrame {
-    len: usize,
-    len_le_bytes: [u8; 8],
-    content: Option<Vec<u8>>,
-    content_parsed: usize,
+pub struct MidiParser {
+    buffer: Option<Vec<u8>>,
 }
 
-impl From<&[u8]> for MidiFrame {
-    fn from(value: &[u8]) -> Self {
-        MidiFrame {
-            len: value.len(),
-            len_le_bytes: [0; 8],
-            content: Some(value.to_vec()),
-            content_parsed: value.len(),
-        }
+impl MidiParser {
+    /// Create a new MidiParser
+    pub fn new() -> Self {
+        MidiParser { buffer: None }
     }
-}
 
-impl MidiFrame {
-    #[doc(hidden)]
-    /// Return Midi Message
-    pub fn deser(mut self, src: &[u8]) -> Option<Vec<u8>> {
-        for chunk in src.chunks(8) {
-            match self.content_parsed {
-                0..=7 => {
-                    for (i, x) in chunk.iter().enumerate() {
-                        self.len_le_bytes[self.content_parsed + i] = *x;
-                    }
+    /// Parse all possible midi message in the given slice
+    pub fn parse(&mut self, src: &[u8]) -> Vec<Vec<u8>> {
+        let mut res: Vec<Vec<u8>> = vec![];
+
+        for elem in src {
+            if elem & 0x80 != 0 && *elem != 0xf7 {
+                if let Some(buff) = self.buffer.take() {
+                    res.push(buff);
                 }
-                _ => self.content.as_mut().unwrap().extend_from_slice(chunk),
             }
-            // self.content_parsed += chunk.len();
-            if self.len_le_bytes.len() == 8 {
-                self.len = usize::from_ne_bytes(self.len_le_bytes.into());
-                self.content = Some(Vec::with_capacity(self.len));
+            match self.buffer.as_mut() {
+                Some(buf) => buf.push(*elem),
+                None => self.buffer = Some(vec![*elem]),
             }
         }
-
-        if self
-            .content
-            .as_ref()
-            .is_some_and(|content| content.len() == self.len)
-        {
-            return self.content.take();
-        }
-
-        None
+        res
     }
 
-    /// Return Network Message
-    pub fn ser(mut self) -> Option<Vec<u8>> {
-        let content = self.content.take()?;
-
-        let mut res = Vec::with_capacity(self.len + 8);
-        res.extend(self.len.to_ne_bytes().iter());
-        res.extend(content);
-
-        Some(res)
+    /// Return the cached unfinished midi message
+    pub fn flush(&mut self) -> Option<Vec<u8>> {
+        self.buffer.take()
     }
 }
 
@@ -77,12 +43,44 @@ impl MidiFrame {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_from() {
-        let src: [u8; 8] = [123, 1, 2, 3, 4, 5, 6, 244];
-        let src_midi_frame: MidiFrame = MidiFrame::from(&src[..2]);
+    #[cfg(test)]
+    mod tests {
+        use super::*;
 
-        println!("{:?}", src_midi_frame);
-        println!("{:?}", src_midi_frame.ser())
+        #[test]
+        fn test_midi_messages() {
+            let midi_messages: Vec<u8> = vec![
+                0x90, 0x3C, 0x40, // Note On, Middle C, Velocity 64
+                0x80, 0x3C, 0x40, // Note Off, Middle C, Velocity 64
+                0xB0, 0x07, 0x7F, // Control Change, Volume, Max
+                0xF0, // SysEx start
+                0x43, // Manufacturer ID (Yamaha)
+                0x10, // Device ID
+                0x3E, // Model ID
+                0x12, // Command ID
+                0x00, 0x7F, 0x00, // Parameters
+                0xF7, // SysEx end
+            ];
+
+            let expected: Vec<Vec<u8>> = vec![
+                vec![0x90, 0x3C, 0x40],
+                vec![0x80, 0x3C, 0x40],
+                vec![0xB0, 0x07, 0x7F],
+                vec![0xF0, 0x43, 0x10, 0x3E, 0x12, 0x00, 0x7F, 0x00, 0xF7],
+            ];
+
+            for chunk_size in 1..midi_messages.len() {
+                let mut midi_parser = MidiParser::new();
+                let mut out: Vec<Vec<u8>> = vec![];
+                for msg in midi_messages.chunks(chunk_size) {
+                    out.append(&mut midi_parser.parse(msg));
+                }
+                if let Some(res) = midi_parser.flush() {
+                    out.push(res);
+                }
+                assert_eq!(out, expected);
+                println!("{out:x?}");
+            }
+        }
     }
 }

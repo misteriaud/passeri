@@ -9,18 +9,15 @@ pub use tcp_sender::Sender;
 
 #[cfg(test)]
 mod tests {
+    use std::net::SocketAddr;
     use std::str::FromStr;
     use std::sync::mpsc::channel;
-    use std::sync::{Arc, Mutex};
+    use std::sync::Arc;
     use std::time::Duration;
-    use std::{net::SocketAddr, sync::mpsc::Receiver};
     use std::{thread, vec};
 
     use log::debug;
-    use midir::{Ignore, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection};
-    use passeri_api::midi::{MidiFrame, MidiPayload};
     use std::fs::File;
-    use std::io;
     use std::io::prelude::*;
     use std::sync::mpsc::RecvTimeoutError;
 
@@ -31,7 +28,7 @@ mod tests {
             .init();
 
         //read sysex file
-        let mut f = File::open("Digitakt_OS1.50.syx").unwrap();
+        let mut f = File::open("file.syx").unwrap();
         let mut buffer = Vec::new();
         // read the whole file
         f.read_to_end(&mut buffer).unwrap();
@@ -70,6 +67,7 @@ mod tests {
             debug!("passeri_sender start to send src vec");
             for msg in src_cpy.as_ref().chunks(32) {
                 midi_src.send(msg);
+                std::thread::sleep(std::time::Duration::from_micros(1));
             }
             debug!("passeri_sender finished to send src vec");
         });
@@ -83,7 +81,7 @@ mod tests {
 
             let mut res: Vec<u8> = vec![];
             let (fake_midi_recv_conn, fake_midi_recv) =
-                passeri_api::midi::new_receiver(1, "PASSERI_FAKE_RECV").unwrap();
+                passeri_api::midi::new_receiver(0, "PASSERI_FAKE_RECV").unwrap();
             debug!("fake midi receiver created");
 
             receiver.receive().unwrap();
@@ -92,7 +90,10 @@ mod tests {
             debug!("passeri_receiver start to receive from passeri_sender");
             loop {
                 match fake_midi_recv.recv_timeout(Duration::from_secs(1)) {
-                    Ok((_, mut msg)) => res.append(&mut msg),
+                    Ok((_, mut msg)) => {
+                        debug!("message received");
+                        res.append(&mut msg)
+                    }
                     Err(RecvTimeoutError::Timeout) => {
                         debug!("check if passeri_receiver still alive");
                         if receiver.is_finished() {
@@ -108,7 +109,6 @@ mod tests {
 
         sender.join().expect("The sender thread has panicked");
         let dest: Vec<u8> = receiver.join().expect("The receiver thread has panicked");
-
-        assert_eq!(&src[..], &dest[..]);
+        assert_eq!(*src, *dest);
     }
 }
